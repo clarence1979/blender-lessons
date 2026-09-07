@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Light, Colour &amp; Texture — a Blender shading lab</title>
+<meta name="description" content="An interactive lab for Year 9: learn how lighting, colour and texture settings in Blender change what a render looks like.">
+<style>
+/* ==========================================================
+   Digital Vector — Light, Colour & Texture Lab
+   Single file, fully offline. No CDN, no storage, no build.
+   ========================================================== */
+:root{
+  --bg:#12141a; --bg-2:#171b23; --panel:#1c212b; --panel-2:#232a36;
+  --well:#0c0e13; --line:#2e3644; --line-soft:#242b37;
+  --ink:#edeae5; --ink-2:#aeb6c4; --ink-3:#7e8697;
+  --key:#ffb45c;      /* key light — warm */
+  --fill:#6db3ff;     /* fill light — cool */
+  --rim:#ff6b9d;      /* rim light */
+  --ok:#79d6a4; --no:#ff7a6b;
+  --sans:"Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --disp:Bahnschrift,"DIN Alternate","Segoe UI Semibold",var(--sans);
+  --mono:Consolas,"SF Mono",Menlo,"DejaVu Sans Mono",monospace;
+  --pad:clamp(16px,4vw,34px);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:400 17px/1.62 var(--sans); -webkit-font-smoothing:antialiased;
+}
+img,canvas,svg{max-width:100%}
+h1,h2,h3,h4{font-family:var(--disp); font-weight:600; letter-spacing:.01em; margin:0}
+h2{font-size:clamp(28px,4.4vw,40px); line-height:1.08}
+h3{font-size:22px; line-height:1.2}
+h4{font-size:17px; line-height:1.3}
+p{margin:0 0 1em}
+a{color:var(--key)}
+code,.mono{font-family:var(--mono); font-size:.88em}
+.wrap{max-width:1060px; margin:0 auto; padding:0 var(--pad)}
+.prose{max-width:65ch}
+.prose p+h3{margin-top:1.6em}
+.dim{color:var(--ink-2)}
+.small{font-size:15px; line-height:1.55}
+
+/* ---------- skip link + focus ---------- */
+.skip{position:absolute; left:-9999px}
+.skip:focus{left:12px; top:12px; z-index:99; background:var(--key); color:#12141a; padding:8px 14px; border-radius:3px}
+:focus-visible{outline:2px solid var(--fill); outline-offset:2px}
+
+/* ---------- hero ---------- */
+.hero{position:relative; min-height:min(84vh,660px); display:flex; align-items:flex-end;
+  overflow:hidden; border-bottom:1px solid var(--line)}
+#heroCanvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.hero-veil{position:absolute; inset:0;
+  background:linear-gradient(180deg,rgba(12,14,19,.72) 0%,rgba(12,14,19,.25) 38%,rgba(12,14,19,.86) 100%)}
+.hero-in{position:relative; width:100%; padding-bottom:clamp(28px,6vw,64px)}
+.hero h1{font-family:var(--disp); font-weight:600; font-size:clamp(38px,7.6vw,76px);
+  line-height:.98; letter-spacing:-.01em; max-width:15ch; text-wrap:balance}
+.hero .lede{max-width:48ch; margin-top:18px; font-size:clamp(17px,2.2vw,20px); color:var(--ink-2)}
+.hero-tag{display:inline-block; font-family:var(--mono); font-size:13px; color:var(--key);
+  border:1px solid rgba(255,180,92,.4); border-radius:2px; padding:3px 9px; margin-bottom:18px}
+.hero-ctrl{display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; align-items:center}
+
+/* ---------- buttons ---------- */
+button{font:inherit; color:inherit}
+.btn{display:inline-flex; align-items:center; gap:8px; background:var(--panel-2);
+  border:1px solid var(--line); color:var(--ink); padding:9px 16px; border-radius:3px;
+  font-size:15px; cursor:pointer; transition:background .14s ease,border-color .14s ease}
+.btn:hover{background:#2c3441; border-color:#414b5d}
+.btn-key{background:var(--key); border-color:var(--key); color:#161009; font-weight:600}
+.btn-key:hover{background:#ffc47c; border-color:#ffc47c}
+.btn-sm{padding:6px 11px; font-size:14px}
+.btn[aria-pressed="true"]{background:var(--key); border-color:var(--key); color:#161009}
+
+/* ---------- section rhythm ---------- */
+section{padding:clamp(48px,8vw,96px) 0; border-bottom:1px solid var(--line-soft)}
+.sec-head{display:flex; gap:18px; align-items:baseline; margin-bottom:26px}
+.sec-num{font-family:var(--mono); font-size:14px; color:var(--key); padding-top:6px}
+.sec-head p{margin:10px 0 0; color:var(--ink-2); max-width:60ch}
+
+/* ---------- lab ---------- */
+.lab{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr); gap:22px;
+  background:var(--panel); border:1px solid var(--line); border-radius:5px; padding:18px; margin:26px 0}
+.lab-view{display:flex; flex-direction:column; gap:10px; min-width:0}
+.view-well{position:relative; background:var(--well); border-radius:4px; overflow:hidden;
+  aspect-ratio:3/2; border:1px solid #05070a}
+.view-well canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.view-badge{position:absolute; left:10px; top:9px; font-family:var(--mono); font-size:11.5px;
+  color:#cdd4e0; background:rgba(10,12,16,.62); padding:3px 8px; border-radius:2px; pointer-events:none}
+.readout{display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--ink-2)}
+.sw{display:flex; align-items:center; gap:7px}
+.sw i{width:22px; height:22px; border-radius:3px; border:1px solid #000; display:block}
+.lab-ctrl{display:flex; flex-direction:column; gap:4px; min-width:0}
+.ctrl-title{font-family:var(--disp); font-size:15px; color:var(--ink-2); margin:6px 0 2px}
+.presets{display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 10px}
+
+/* ---------- sliders ---------- */
+.sl{padding:7px 0 9px; border-bottom:1px solid var(--line-soft)}
+.sl:last-child{border-bottom:0}
+.sl-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+.sl-lab{font-size:14.5px}
+.sl-val{font-family:var(--mono); font-size:13px; color:var(--key)}
+.sl-hint{font-size:12.5px; color:var(--ink-3); margin-top:3px; min-height:1.2em}
+.sl-blend{font-family:var(--mono); font-size:11.5px; color:var(--ink-3)}
+input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:22px; background:transparent; margin:2px 0; cursor:grab}
+input[type=range]:active{cursor:grabbing}
+input[type=range]::-webkit-slider-runnable-track{height:5px; border-radius:3px; background:var(--trk,#333c4b)}
+input[type=range]::-moz-range-track{height:5px; border-radius:3px; background:var(--trk,#333c4b)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:17px; height:17px; margin-top:-6px;
+  border-radius:50%; background:#f2f0ec; border:2px solid #12141a; box-shadow:0 0 0 1px #6a7488}
+input[type=range]::-moz-range-thumb{width:15px; height:15px; border-radius:50%; background:#f2f0ec; border:2px solid #12141a}
+
+/* ---------- diagrams ---------- */
+.rig{background:var(--well); border:1px solid var(--line-soft); border-radius:4px}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+.fig{background:var(--bg-2); border:1px solid var(--line-soft); border-radius:4px; padding:14px}
+.fig figcaption{font-size:13.5px; color:var(--ink-2); margin-top:8px}
+
+/* ---------- content bits ---------- */
+.callout{border-left:3px solid var(--key); background:var(--bg-2); padding:14px 18px; margin:22px 0; border-radius:0 4px 4px 0}
+.callout h4{margin-bottom:6px}
+.callout.cool{border-left-color:var(--fill)}
+.callout.pink{border-left-color:var(--rim)}
+.grid3{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin:22px 0}
+.use{border-top:2px solid var(--line); padding-top:12px}
+.use h4{margin-bottom:5px}
+.use p{font-size:14.5px; color:var(--ink-2); margin:0}
+table.map{width:100%; border-collapse:collapse; font-size:14.5px; margin:18px 0}
+table.map th,table.map td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+table.map th{font-family:var(--disp); font-weight:600; color:var(--ink-2); font-size:14px}
+table.map td:first-child{white-space:nowrap}
+.chip{font-family:var(--mono); font-size:12.5px; background:var(--panel-2); border:1px solid var(--line);
+  border-radius:2px; padding:2px 7px; color:#d9dfe9}
+
+
+/* ---------- kelvin bar ---------- */
+.kbar{margin:22px 0 10px; max-width:760px}
+.kbar i{display:block; height:16px; border-radius:3px; border:1px solid #000;
+  background:linear-gradient(90deg,#ff7b0d,#ffa64d,#ffc98f,#ffe6cf,#fffaf4,#f0f5ff,#d6e4ff,#bcd3ff)}
+.kbar span{display:inline-block; font-family:var(--mono); font-size:11.5px; color:var(--ink-3); margin-top:6px}
+.kbar span+span{margin-left:calc(min(6vw,52px))}
+
+/* ---------- colour multiply strip ---------- */
+.mix{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:20px 0 26px}
+.mixi{flex:1 1 150px; margin:0}
+.mix .op{flex:0 0 auto}
+
+.mix .box{aspect-ratio:2/1; border-radius:4px; border:1px solid #000}
+.mix .op{font-family:var(--disp); font-size:26px; color:var(--ink-3); text-align:center}
+.mix .cap{font-size:12.5px; color:var(--ink-2); text-align:center; margin-top:6px; font-family:var(--mono)}
+.rgbrow{font-family:var(--mono); font-size:12.5px; color:var(--ink-3); text-align:center; margin-top:2px}
+
+#wheel{width:100%; max-width:250px; display:block; margin:0 auto}
+
+/* ---------- challenge ---------- */
+.chal{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+.score{font-family:var(--disp); font-size:52px; line-height:1; color:var(--key)}
+.bar{height:9px; background:#2a313d; border-radius:5px; overflow:hidden; margin:10px 0}
+.bar i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--no),var(--key),var(--ok)); transition:width .3s ease}
+.hintlist{margin:10px 0 0; padding-left:18px; font-size:14.5px; color:var(--ink-2)}
+.hintlist li{margin:4px 0}
+
+/* ---------- quiz ---------- */
+.q{border:1px solid var(--line); border-radius:4px; padding:16px 18px; margin:14px 0; background:var(--panel)}
+.q h4{margin-bottom:10px}
+.opts{display:flex; flex-direction:column; gap:7px}
+.opt{display:flex; gap:10px; align-items:flex-start; background:var(--panel-2); border:1px solid var(--line);
+  border-radius:3px; padding:9px 12px; cursor:pointer; font-size:15px; text-align:left; transition:border-color .12s}
+.opt:hover{border-color:#4a5568}
+.opt.right{border-color:var(--ok); background:rgba(121,214,164,.1)}
+.opt.wrong{border-color:var(--no); background:rgba(255,122,107,.09)}
+.opt[disabled]{cursor:default}
+.fb{font-size:14.5px; margin-top:10px; color:var(--ink-2); display:none}
+.fb.show{display:block}
+
+/* ---------- footer ---------- */
+footer{padding:34px 0 60px; color:var(--ink-3); font-size:14px}
+footer strong{color:var(--ink-2)}
+
+/* ---------- responsive ---------- */
+@media (max-width:880px){
+  .lab{grid-template-columns:1fr}
+  .two,.chal{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  #chalGrid{grid-template-columns:1fr!important}
+}
+@media (max-width:560px){
+  body{font-size:16px}
+  .mix .op{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important; animation:none!important}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#lab1">Skip to the first lab</a>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <canvas id="heroCanvas" aria-hidden="true"></canvas>
+  <div class="hero-veil"></div>
+  <div class="hero-in wrap">
+    <span class="hero-tag">Blender shading lab</span>
+    <h1>A render is only maths pretending to be light.</h1>
+    <p class="lede">Same ball. Same camera. Nothing about the model changes below &mdash; only the light,
+      the colour and the surface. That is the whole difference between a school project and an ad
+      you'd actually stop scrolling for.</p>
+    <div class="hero-ctrl">
+      <button class="btn btn-key" id="heroPlay">Move the light</button>
+      <a class="btn" href="#lab1">Start lab 1</a>
+    </div>
+  </div>
+</header>
+
+<!-- ================= WHY ================= -->
+<section id="intro">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">00</span>
+      <div>
+        <h2>Why student renders look like student renders</h2>
+        <p>It is almost never the modelling. Two people can hand in the identical mesh and one render
+          looks like a photo while the other looks like a grey blob with a sunburn. The gap is three
+          sets of settings.</p>
+      </div>
+    </div>
+
+    <div class="two">
+      <figure class="fig">
+        <div class="view-well" style="aspect-ratio:4/3"><canvas id="cmpA"></canvas><span class="view-badge">defaults</span></div>
+        <figcaption>One light straight above, no texture, roughness left at 0.5. Everything is lit
+          evenly, so nothing has a shape.</figcaption>
+      </figure>
+      <figure class="fig">
+        <div class="view-well" style="aspect-ratio:4/3"><canvas id="cmpB"></canvas><span class="view-badge">shaped</span></div>
+        <figcaption>Key light moved off to the side and warmed up, a cool world light lifting the
+          shadows, roughness dropped, a texture added. Same ball.</figcaption>
+      </figure>
+    </div>
+
+    <div class="grid3">
+      <div class="use">
+        <h4>Light</h4>
+        <p>Where it comes from, how big it is, how bright, what colour. Light is what gives an object
+          a shape your eye can read.</p>
+      </div>
+      <div class="use">
+        <h4>Colour</h4>
+        <p>The colour of the surface and the colour of the light get multiplied together. You never
+          see one without the other.</p>
+      </div>
+      <div class="use">
+        <h4>Texture</h4>
+        <p>The pattern across the surface, plus how rough or metal it is. This is what tells your
+          brain "wood", "wet", "cheap plastic".</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h4>How to use this page</h4>
+      <p class="small">Read a bit, then drag. Every slider is a real Blender setting and the grey
+        line under each one tells you where to find it. If a lab gets messy, hit
+        <span class="chip">Reset</span> and start again.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LAB 1 : LIGHT ================= -->
+<section id="lab1">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <div>
+        <h2>Light: the angle does the acting</h2>
+        <p>A camera cannot see an object. It can only see light that bounced off an object and
+          arrived at the lens. Change the bounce and you change everything.</p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <h3>Brightness is just an angle</h3>
+      <p>Every point on a surface has an invisible arrow sticking straight out of it, called the
+        <em>normal</em>. If the light hits that arrow head-on, the point is fully bright. As the
+        surface tilts away, the same light spreads across more area, so that point gets dimmer, until
+        the surface turns past 90&deg; and gets nothing at all.</p>
+      <p>That fade from bright to dark is called the <em>terminator</em>, and it is doing most of the
+        work of telling your brain the ball is round. Point the light from exactly where the camera
+        is and the terminator hides behind the object &mdash; which is why photos taken with your
+        phone's flash look flat and awful.</p>
+
+      <h3>The size of the light decides the shadow</h3>
+      <p>A small light source makes hard, knife-edged shadows. A big one wraps around the object and
+        makes soft shadows with fuzzy edges. That is the entire difference between a sunny day and a
+        cloudy day: clouds turn the sun into a light source the size of the sky.</p>
+      <p>Photographers pay real money for a softbox, which is just a big white sheet in front of a
+        lamp. In Blender you get the same thing for free by increasing the light's
+        <span class="chip">Size</span> (or, for a sun, its <span class="chip">Angle</span>).</p>
+
+      <h3>Light has a colour, and it is rarely white</h3>
+      <p>We measure the colour of white-ish light in kelvin. Low numbers are orange, high numbers are
+        blue &mdash; which feels backwards until you remember a candle flame versus a blue star.</p>
+    </div>
+
+    <div class="kbar" aria-hidden="true"><i></i>
+      <span>1800K candle</span><span>2700K lamp</span><span>5500K midday</span><span>7500K shade</span><span>10000K blue hour</span>
+    </div>
+
+    <div class="prose">
+      <p>Your eyes auto-correct this constantly, so you barely notice that your bedroom light is
+        orange and daylight is blue. A render does not auto-correct. If every light in your scene is
+        pure white, the image reads as fake before anyone can say why.</p>
+    </div>
+
+    <div class="lab" id="lab1Wrap">
+      <div class="lab-view">
+        <div class="view-well"><canvas id="c1"></canvas><span class="view-badge">lab 1 — light</span></div>
+        <svg class="rig" id="rig1" viewBox="0 0 340 150" role="img" aria-label="Diagram showing where the light sits around the object, from above and from the side"></svg>
+        <div class="readout">
+          <span class="sw"><i id="ro1a"></i>light colour</span>
+          <span class="sw"><i id="ro1b"></i>world colour</span>
+          <span class="dim small" id="ro1c"></span>
+        </div>
+      </div>
+      <div class="lab-ctrl">
+        <div class="ctrl-title">Try a setup</div>
+        <div class="presets" id="p1"></div>
+        <div id="s1"></div>
+        <div class="presets" style="margin-top:10px">
+          <button class="btn btn-sm" id="orbit1" aria-pressed="false">Orbit the light</button>
+          <button class="btn btn-sm" data-reset="1">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:34px">Where this actually gets used</h3>
+    <div class="grid3">
+      <div class="use">
+        <h4>On a film set</h4>
+        <p>Before a visual effects shot, someone walks in holding a mirrored ball and a grey ball.
+          They photograph both so the CG artists can copy the exact real lighting onto a dragon later.</p>
+      </div>
+      <div class="use">
+        <h4>Horror and thrillers</h4>
+        <p>Drop the key light below the face and every human looks wrong. Your brain has never seen
+          daylight come from underneath, so it reads the face as a threat.</p>
+      </div>
+      <div class="use">
+        <h4>Real estate listings</h4>
+        <p>Interiors are shot or rendered with warm indoor light and a cool blue window. That warm
+          and cool split is why the room feels like somewhere you'd live.</p>
+      </div>
+      <div class="use">
+        <h4>Streamers and creators</h4>
+        <p>A ring light is a big soft source right next to the lens. Flattering, but flat &mdash;
+          which is why serious channels push the key off to one side instead.</p>
+      </div>
+    </div>
+
+    <table class="map">
+      <caption class="small dim" style="text-align:left; padding:6px 0">Slider in this lab &rarr; the control in Blender</caption>
+      <tr><th>This lab</th><th>Blender</th><th>Where</th></tr>
+      <tr><td>Direction, height</td><td>Move or rotate the light object</td><td>3D viewport, <span class="chip">G</span> to grab, <span class="chip">R</span> to rotate</td></tr>
+      <tr><td>Brightness</td><td><span class="chip">Power</span> in watts (or Strength for a sun)</td><td>Light data tab, the green bulb icon</td></tr>
+      <tr><td>Light size</td><td><span class="chip">Size</span> for area lights, <span class="chip">Angle</span> for a sun</td><td>Same panel, straight under Power</td></tr>
+      <tr><td>Colour</td><td><span class="chip">Color</span> swatch, use the Blackbody node for kelvin</td><td>Light data tab, or Shading workspace</td></tr>
+      <tr><td>World light</td><td><span class="chip">Color</span> and <span class="chip">Strength</span></td><td>World properties, the red globe icon</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ================= THREE POINT ================= -->
+<section id="threepoint">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <div>
+        <h2>The three-light rig that runs the internet</h2>
+        <p>Interviews, product shots, character select screens, almost every YouTube face you've ever
+          seen: nearly all of it is the same three lights doing three different jobs.</p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <p><strong>Key</strong> is the boss. It is the brightest light and it decides where the shadows
+        fall. <strong>Fill</strong> sits on the opposite side, dimmer and softer, and its only job is
+        to stop the shadow side going pure black. <strong>Rim</strong> (also called a back light)
+        hides behind the subject and draws a bright edge around them, which peels them off the
+        background.</p>
+      <p>The trick is the ratio, not the count. Kill the fill and you get drama. Crank the fill until
+        it matches the key and you get a passport photo. Add a coloured rim and you get every
+        esports poster ever made.</p>
+    </div>
+
+    <div class="lab" id="lab2Wrap">
+      <div class="lab-view">
+        <div class="view-well"><canvas id="c2"></canvas><span class="view-badge">lab 2 — three-point rig</span></div>
+        <svg class="rig" id="rig2" viewBox="0 0 340 150" role="img" aria-label="Top-down diagram of a three point lighting rig"></svg>
+      </div>
+      <div class="lab-ctrl">
+        <div class="ctrl-title">Try a look</div>
+        <div class="presets" id="p2"></div>
+        <div id="s2"></div>
+        <div class="presets" style="margin-top:10px">
+          <button class="btn btn-sm" data-reset="2">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout cool">
+      <h4>Test yourself</h4>
+      <p class="small">Set fill to zero and rim to zero, then bring only the rim back up. Notice you
+        can still tell it is a sphere, using nothing but the edge. That is why rim light survives in
+        night scenes where everything else is black.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LAB 3 : COLOUR ================= -->
+<section id="lab3">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <div>
+        <h2>Colour: two colours, multiplied</h2>
+        <p>An object has no colour of its own that you can see. It has a preference &mdash; which
+          wavelengths it bounces back &mdash; and the light decides what is available to bounce.</p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <h3>Hue, saturation, value</h3>
+      <p>Blender's colour picker is a wheel plus a slider, and it is asking you three questions.
+        <em>Hue</em> is which colour it is, going around the wheel. <em>Saturation</em> is how much of
+        it there is, from grey in the middle to screaming at the edge. <em>Value</em> is how light or
+        dark. Almost every "my render looks like cheap plastic" problem is saturation cranked to
+        maximum, because almost nothing in the real world is fully saturated.</p>
+
+      <h3>Why a red shirt goes black under a cyan light</h3>
+      <p>The maths is honest and brutal: the renderer multiplies the surface colour by the light
+        colour, channel by channel. A red surface is roughly (1, 0, 0). A cyan light is roughly
+        (0, 1, 1). Multiply them and you get (0, 0, 0). Black. No red light arrived, so no red can
+        come back.</p>
+    </div>
+
+    <div class="mix" id="mixStrip">
+      <figure class="mixi"><div class="box" id="mxObj"></div><figcaption class="cap">surface colour</figcaption><div class="rgbrow" id="mxObjV"></div></figure>
+      <div class="op">&times;</div>
+      <figure class="mixi"><div class="box" id="mxLit"></div><figcaption class="cap">light colour</figcaption><div class="rgbrow" id="mxLitV"></div></figure>
+      <div class="op">=</div>
+      <figure class="mixi"><div class="box" id="mxRes"></div><figcaption class="cap">what you see</figcaption><div class="rgbrow" id="mxResV"></div></figure>
+    </div>
+
+    <div class="prose">
+      <h3>Warm light, cool shadows</h3>
+      <p>Look at a poster for almost any action film and you will find warm orange skin against a
+        teal background. Orange and teal sit opposite each other on the colour wheel, so they make
+        each other look stronger. Nature does it for free: sunlight is warm, and the shadows are
+        filled by the blue sky, so shadows go cool.</p>
+      <p>Copy that in Blender by warming the key light slightly and tinting the world blue. It costs
+        nothing and it instantly stops your render looking like a grey Tuesday.</p>
+    </div>
+
+    <div class="lab" id="lab3Wrap">
+      <div class="lab-view">
+        <div class="view-well"><canvas id="c3"></canvas><span class="view-badge">lab 3 — colour</span></div>
+        <div class="readout">
+          <span class="sw"><i id="ro3a"></i>base colour</span>
+          <span class="sw"><i id="ro3b"></i>light</span>
+          <span class="sw"><i id="ro3c"></i>world</span>
+        </div>
+      </div>
+      <div class="lab-ctrl">
+        <div class="ctrl-title">Try a palette</div>
+        <div class="presets" id="p3"></div>
+        <div id="s3"></div>
+        <div class="presets" style="margin-top:10px">
+          <button class="btn btn-sm" data-reset="3">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="two" style="margin-top:6px">
+      <figure class="fig">
+        <svg id="wheel" viewBox="0 0 220 220" role="img" aria-label="Colour wheel showing the chosen hue and its complementary hue"></svg>
+        <figcaption>Your surface hue and the hue directly opposite it. Opposites clash on purpose;
+          neighbours agree. Both are useful, for different jobs.</figcaption>
+      </figure>
+      <div>
+        <h3>What colour is telling the audience</h3>
+        <p class="small dim">Colour is a shortcut straight past the thinking part of the brain, which
+          is why designers use it deliberately rather than picking a favourite.</p>
+        <table class="map">
+          <tr><th>Choice</th><th>Usually reads as</th></tr>
+          <tr><td>Warm, low saturation</td><td>Safe, home, evening, nostalgic</td></tr>
+          <tr><td>Cool, low saturation</td><td>Clean, clinical, expensive, lonely</td></tr>
+          <tr><td>Green under-light</td><td>Sick, toxic, something is wrong</td></tr>
+          <tr><td>Magenta and cyan together</td><td>Night city, arcade, sci-fi</td></tr>
+          <tr><td>Almost no saturation at all</td><td>Documentary, grim, real</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout pink">
+      <h4>Spelling trap</h4>
+      <p class="small">Blender was written in American English, so every panel says
+        <span class="chip">Color</span> and <span class="chip">Base Color</span>. Search for "colour"
+        in the Blender search bar and you will find nothing at all.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LAB 4 : TEXTURE ================= -->
+<section id="lab4">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <div>
+        <h2>Texture: the surface tells the story</h2>
+        <p>Light gives an object shape. Texture and material settings tell you what it is
+          <em>made of</em> &mdash; and your brain decides that in well under a second.</p>
+      </div>
+    </div>
+
+    <div class="prose">
+      <h3>Roughness is the most powerful slider in Blender</h3>
+      <p>Roughness controls how tidy the reflections are. At zero, the surface is a mirror: it
+        reflects the world sharply and the light shows up as a tiny, intense dot. Push it up and the
+        microscopic bumps scatter the reflection until the highlight is a big soft glow.</p>
+      <p>This is why a road looks black and boring when dry and mirror-like when wet. Water fills in
+        the rough pits and drops the roughness. It is the same reason a whiteboard glares at you when
+        the sun hits it, and paper never does.</p>
+
+      <h3>Metallic is a switch, not a dial</h3>
+      <p>Metals do something no other material does: they tint their reflections and they have almost
+        no ordinary surface colour underneath. Gold does not look gold because it is painted gold, it
+        looks gold because it reflects the room back at you in gold. In Blender, metallic should be
+        0 or 1. Values in between describe a material physics does not have.</p>
+
+      <h3>Bump maps are a magic trick</h3>
+      <p>Real bumps cost geometry, and geometry costs frame rate. So we cheat. A bump or normal map
+        leaves the surface perfectly flat and only lies to the shading about which way each point is
+        facing. Light hits the fake angle, you get fake shadows in the fake grooves, and your brain
+        happily accepts a wall of bricks that is actually a flat plane.</p>
+      <p>The lie has one tell: the silhouette. Look at the outline of the ball while you drag the
+        bump slider &mdash; the edge never changes. Free bumps everywhere except the edge, which is
+        the deal every game on earth accepts.</p>
+    </div>
+
+    <figure class="fig">
+      <svg viewBox="0 0 620 130" role="img" aria-label="Cross sections comparing a painted texture, a bump map and real displaced geometry">
+        <g fill="none" stroke-width="2.5" stroke-linecap="round">
+          <path d="M20 92 H190" stroke="#6db3ff"/>
+          <path d="M215 92 H385" stroke="#ffb45c"/>
+          <path d="M410 92 q10 -22 20 0 q10 -22 20 0 q10 -22 20 0 q10 -22 20 0 q10 -22 20 0 q10 -22 20 0 q10 -22 20 0 q10 -22 20 0" stroke="#ff6b9d"/>
+        </g>
+        <g stroke="#8d97a8" stroke-width="1.4" opacity=".85">
+          <path d="M40 92 v-16 M70 92 v-16 M100 92 v-16 M130 92 v-16 M160 92 v-16"/>
+          <path d="M235 92 l-9 -13 M265 92 l9 -13 M295 92 l-9 -13 M325 92 l9 -13 M355 92 l-9 -13"/>
+          <path d="M430 82 l-7 -13 M460 82 l7 -13 M490 82 l-7 -13 M520 82 l7 -13 M550 82 l-7 -13"/>
+        </g>
+        <g fill="#aeb6c4" font-family="Consolas,monospace" font-size="12">
+          <text x="20" y="118">flat, painted pattern</text>
+          <text x="215" y="118">flat, but normals tilted</text>
+          <text x="410" y="118">actual displaced geometry</text>
+        </g>
+        <g fill="#7e8697" font-family="Consolas,monospace" font-size="11">
+          <text x="20" y="30">Base Color only</text>
+          <text x="215" y="30">Bump / Normal Map</text>
+          <text x="410" y="30">Displacement</text>
+        </g>
+      </svg>
+      <figcaption>The grey ticks are surface normals &mdash; the direction the shading thinks each
+        point faces. A bump map changes only the ticks. Displacement changes the actual surface, and
+        the render time with it.</figcaption>
+    </figure>
+
+    <div class="lab" id="lab4Wrap">
+      <div class="lab-view">
+        <div class="view-well"><canvas id="c4"></canvas><span class="view-badge">lab 4 — material</span></div>
+        <div class="readout"><span class="dim small" id="ro4"></span></div>
+      </div>
+      <div class="lab-ctrl">
+        <div class="ctrl-title">Pattern</div>
+        <div class="presets" id="p4tex"></div>
+        <div class="ctrl-title">Preset materials</div>
+        <div class="presets" id="p4"></div>
+        <div id="s4"></div>
+        <div class="presets" style="margin-top:10px">
+          <button class="btn btn-sm" id="flatten">Prove it is flat</button>
+          <button class="btn btn-sm" data-reset="4">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:34px">Where this actually gets used</h3>
+    <div class="grid3">
+      <div class="use">
+        <h4>Every game you own</h4>
+        <p>Artists sculpt a rock with millions of polygons, then bake that detail into a normal map
+          and stick it on a rock with a few hundred. Your GPU renders the cheap one and you cannot
+          tell.</p>
+      </div>
+      <div class="use">
+        <h4>Product ads</h4>
+        <p>Plenty of phone and sneaker "photos" are renders. The job is mostly roughness: getting
+          brushed aluminium, soft rubber and glass to sit in the same shot believably.</p>
+      </div>
+      <div class="use">
+        <h4>Museums and heritage</h4>
+        <p>Artefacts get photo-scanned into 3D with colour and roughness captured separately, so a
+          fragile object can be studied and lit from any angle without being touched.</p>
+      </div>
+      <div class="use">
+        <h4>Film creatures</h4>
+        <p>Skin needs light to travel a little way inside it before coming back out. That is
+          subsurface scattering &mdash; a separate slider on the same Blender material, and the
+          reason CG skin used to look like painted rubber.</p>
+      </div>
+    </div>
+
+    <table class="map">
+      <caption class="small dim" style="text-align:left; padding:6px 0">Slider in this lab &rarr; the control in Blender</caption>
+      <tr><th>This lab</th><th>Blender</th><th>Where</th></tr>
+      <tr><td>Pattern</td><td>Image Texture or a procedural node into <span class="chip">Base Color</span></td><td>Shading workspace, <span class="chip">Shift+A</span> to add a node</td></tr>
+      <tr><td>Pattern size</td><td><span class="chip">Scale</span> on a Mapping node</td><td>Between the texture coordinate and the texture</td></tr>
+      <tr><td>Bump depth</td><td><span class="chip">Strength</span> on a Bump node into Normal</td><td>Same node tree, plugged into the shader's Normal socket</td></tr>
+      <tr><td>Roughness</td><td><span class="chip">Roughness</span></td><td>Material properties, Principled BSDF</td></tr>
+      <tr><td>Metallic</td><td><span class="chip">Metallic</span></td><td>Directly above Roughness</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ================= CHALLENGE ================= -->
+<section id="challenge">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <div>
+        <h2>Match the render</h2>
+        <p>Here is a target image made with settings you cannot see. Read the light and the surface,
+          then drive your sliders until yours matches. This is exactly what a lighting artist does
+          when a shot has to match the plate.</p>
+      </div>
+    </div>
+
+    <div class="presets" id="chalPick"></div>
+
+    <div class="lab" style="grid-template-columns:1fr">
+      <div class="chal">
+        <div class="lab-view">
+          <div class="view-well"><canvas id="cTgt"></canvas><span class="view-badge">target</span></div>
+        </div>
+        <div class="lab-view">
+          <div class="view-well"><canvas id="cYou"></canvas><span class="view-badge">yours</span></div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:minmax(260px,1fr) minmax(240px,320px); gap:22px; margin-top:6px" id="chalGrid">
+        <div id="s5"></div>
+        <div>
+          <div class="ctrl-title">Match</div>
+          <div class="score" id="chalScore">&mdash;</div>
+          <div class="bar"><i id="chalBar"></i></div>
+          <button class="btn btn-key" id="chalCheck">Check my match</button>
+          <ul class="hintlist" id="chalHints"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= QUIZ ================= -->
+<section id="quiz">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <div>
+        <h2>Check yourself</h2>
+        <p>Six questions. You get told why straight away, so guessing is a waste of your own time.</p>
+      </div>
+    </div>
+    <div id="quizBox"></div>
+    <p id="quizScore" class="dim"></p>
+  </div>
+</section>
+
+<!-- ================= DO IT IN BLENDER ================= -->
+<section id="doit">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="sec-num">07</span>
+      <div>
+        <h2>Now do it in Blender</h2>
+        <p>Twenty minutes, one sphere. Everything you just dragged has a real home in the interface.</p>
+      </div>
+    </div>
+    <div class="prose">
+      <ol class="small" style="padding-left:20px; line-height:1.9">
+        <li>New scene. Delete the default cube, add a UV sphere, right-click it and choose
+          <span class="chip">Shade Smooth</span>. Add a plane and scale it up for a floor.</li>
+        <li>Switch the viewport to rendered mode with <span class="chip">Z</span>. You cannot light
+          anything you cannot see.</li>
+        <li>Select the light, open the green bulb tab, change it to an <span class="chip">Area</span>
+          light. Set Power around 200 W and Size around 2 m. Move it up and off to one side.</li>
+        <li>Drop Size to 0.05 and watch the shadow edge snap hard. Put it back.</li>
+        <li>Open World properties, set Strength to about 0.3 and tint the colour blue. Warm the key
+          light slightly. That is your orange-and-teal split.</li>
+        <li>Select the sphere, Material properties, add a new material. Set Base Color, then sweep
+          Roughness from 0 to 1 and stop where it looks like the material you want.</li>
+        <li>In the Shading workspace, add <span class="chip">Shift+A</span> a Brick or Noise texture,
+          plug it into Base Color, then add a Bump node and plug the same texture into it and the
+          Bump into Normal.</li>
+        <li>Render with <span class="chip">F12</span>. Compare it against the target you matched
+          above.</li>
+      </ol>
+    </div>
+    <div class="callout">
+      <h4>If your render comes out black</h4>
+      <p class="small">Nine times out of ten it is one of three things: the light Power is far too
+        low for the distance, the World Strength is zero, or you are looking through a camera that is
+        pointing at nothing. Check them in that order.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><strong>Light, Colour &amp; Texture Lab</strong> — a Digital Vector classroom tool. Runs
+      offline from a single file; nothing is uploaded and nothing is saved.</p>
+    <p class="small">Every image on this page is ray traced live in your browser from the slider
+      values, using the same lighting maths Blender's engines are built on, simplified enough to run
+      at speed on a school laptop.</p>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   Digital Vector — Light, Colour & Texture Lab
+   Core software renderer: one sphere on a floor, ray traced
+   per pixel with a Blinn-Phong / PBR-flavoured shading model.
+   Pure functions only so it can be unit-tested in node.
+   ============================================================ */
+
+/* ---------- small maths helpers ---------- */
+function clamp(x, a, b) { return x < a ? a : (x > b ? b : x); }
+function mix(a, b, t) { return a + (b - a) * t; }
+function smoothstep(e0, e1, x) {
+  var t = clamp((x - e0) / (e1 - e0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+function hsvToRgb(h, s, v) {
+  h = ((h % 360) + 360) % 360 / 60; s = clamp(s, 0, 1); v = clamp(v, 0, 1);
+  var c = v * s, x = c * (1 - Math.abs((h % 2) - 1)), m = v - c, r = 0, g = 0, b = 0;
+  if (h < 1) { r = c; g = x; } else if (h < 2) { r = x; g = c; }
+  else if (h < 3) { g = c; b = x; } else if (h < 4) { g = x; b = c; }
+  else if (h < 5) { r = x; b = c; } else { r = c; b = x; }
+  return [r + m, g + m, b + m];
+}
+
+/* Kelvin -> approximate display RGB (Tanner Helland style curve fit) */
+function kelvinToRgb(k) {
+  var t = clamp(k, 1000, 15000) / 100, r, g, b;
+  if (t <= 66) { r = 255; }
+  else { r = 329.698727446 * Math.pow(t - 60, -0.1332047592); }
+  if (t <= 66) { g = 99.4708025861 * Math.log(t) - 161.1195681661; }
+  else { g = 288.1221695283 * Math.pow(t - 60, -0.0755148492); }
+  if (t >= 66) { b = 255; }
+  else if (t <= 19) { b = 0; }
+  else { b = 138.5177312231 * Math.log(t - 10) - 305.0447927307; }
+  r = clamp(r, 0, 255) / 255; g = clamp(g, 0, 255) / 255; b = clamp(b, 0, 255) / 255;
+  // normalise so brightness is driven by the power slider, not the temperature
+  var m = Math.max(r, g, b) || 1;
+  return [r / m, g / m, b / m];
+}
+
+/* ---------- procedural patterns ----------
+   Each returns a height 0..1. Colour is derived from the height so
+   students see one pattern drive both the colour map and the bump map. */
+function hash2(x, y) {
+  var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+function valueNoise(x, y) {
+  var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+  var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  var a = hash2(xi, yi), b = hash2(xi + 1, yi), c = hash2(xi, yi + 1), d = hash2(xi + 1, yi + 1);
+  return mix(mix(a, b, u), mix(c, d, u), v);
+}
+function fbm(x, y) {
+  return valueNoise(x, y) * 0.55 + valueNoise(x * 2.03, y * 2.03) * 0.28 + valueNoise(x * 4.11, y * 4.11) * 0.17;
+}
+
+// pattern ids: 0 plain, 1 checker, 2 bricks, 3 rock/noise, 4 dots, 5 stripes, 6 woven cloth
+function pattern(id, u, v, s) {
+  var x = u * s, y = v * s;
+  switch (id) {
+    case 1: {
+      var c = (Math.floor(x) + Math.floor(y)) & 1;
+      return c ? 1 : 0;
+    }
+    case 2: {
+      var row = Math.floor(y * 2);
+      var xo = x + (row & 1 ? 0.5 : 0);
+      var fx = xo - Math.floor(xo), fy = (y * 2) - row;
+      var mortar = smoothstep(0.0, 0.06, fx) * smoothstep(1.0, 0.94, fx) *
+                   smoothstep(0.0, 0.10, fy) * smoothstep(1.0, 0.90, fy);
+      var grain = fbm(xo * 6, y * 12) * 0.18;
+      return clamp(mortar * (0.85 + grain), 0, 1);
+    }
+    case 3: {
+      var n = fbm(x, y);
+      return clamp((n - 0.25) * 1.7, 0, 1);
+    }
+    case 4: {
+      var cx = x - Math.floor(x) - 0.5, cy = y - Math.floor(y) - 0.5;
+      var d = Math.sqrt(cx * cx + cy * cy);
+      return 1 - smoothstep(0.22, 0.34, d);
+    }
+    case 5: {
+      return 0.5 + 0.5 * Math.sin(x * Math.PI * 2);
+    }
+    case 6: {
+      var wx = 0.5 + 0.5 * Math.sin(x * Math.PI * 2);
+      var wy = 0.5 + 0.5 * Math.sin(y * Math.PI * 2);
+      return clamp(Math.max(wx, wy) * 0.9 + fbm(x * 8, y * 8) * 0.1, 0, 1);
+    }
+    default: return 0.5;
+  }
+}
+
+/* how strongly a pattern darkens/lightens the base colour */
+function patternTint(id, h) {
+  if (id === 0) return 1;
+  if (id === 1) return mix(0.18, 1.0, h);      // strong checker
+  if (id === 2) return mix(0.35, 1.0, h);      // mortar is pale, brick is base
+  if (id === 3) return mix(0.45, 1.05, h);
+  if (id === 4) return mix(1.0, 0.25, h);
+  if (id === 5) return mix(0.30, 1.0, h);
+  return mix(0.55, 1.0, h);
+}
+
+/* ---------- default parameter set ---------- */
+function defaultParams() {
+  return {
+    lightAz: 40, lightEl: 42, lightPower: 1.35, lightCol: [1, 1, 1],
+    softness: 0.25,
+    fillPower: 0.0, rimPower: 0.0,
+    fillCol: [0.55, 0.72, 1.0], rimCol: [1, 1, 1],
+    ambPower: 0.22, ambCol: [0.50, 0.55, 0.66],
+    baseCol: [0.85, 0.32, 0.20],
+    rough: 0.35, metal: 0.0,
+    tex: 0, texScale: 6, bump: 0.0,
+    floor: true, floorTint: 0.60,
+    exposure: 1.0
+  };
+}
+
+/* ---------- the renderer ----------
+   buf: Uint8ClampedArray | Uint8Array of W*H*4
+*/
+function renderScene(buf, W, H, P) {
+  var camPos = [0, 1.45, 5.0], target = [0, 0.95, 0];
+  var fx = 0, fy = 0, fz = 0;
+  fx = target[0] - camPos[0]; fy = target[1] - camPos[1]; fz = target[2] - camPos[2];
+  var fl = Math.sqrt(fx * fx + fy * fy + fz * fz); fx /= fl; fy /= fl; fz /= fl;
+  // right = normalize(cross(f, worldUp))
+  var rx = -fz, ry = 0, rz = fx;
+  var rl = Math.sqrt(rx * rx + rz * rz) || 1; rx /= rl; rz /= rl;
+  // up = cross(right, f)
+  var ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+
+  var tanF = Math.tan(30 * Math.PI / 360);
+  var aspect = W / H;
+
+  var az = P.lightAz * Math.PI / 180, el = P.lightEl * Math.PI / 180;
+  var Lx = Math.sin(az) * Math.cos(el), Ly = Math.sin(el), Lz = Math.cos(az) * Math.cos(el);
+  // fill light: opposite side, low and soft. rim: behind, high.
+  var Fx = -Lx, Fy = Math.abs(Ly) * 0.45 + 0.25, Fz = Math.max(Lz, 0.25);
+  var fnl = Math.sqrt(Fx * Fx + Fy * Fy + Fz * Fz); Fx /= fnl; Fy /= fnl; Fz /= fnl;
+  // rim light: behind the subject and swung to the side opposite the key
+  var raz = az + 165 * Math.PI / 180, rel = 32 * Math.PI / 180;
+  var Rx = Math.sin(raz) * Math.cos(rel), Ry = Math.sin(rel), Rz = Math.cos(raz) * Math.cos(rel);
+
+  var sphC = [0, 1, 0], sphR = 1.0;
+  var wrap = 0.02 + P.softness * 0.55;         // soft lights wrap around the terminator
+  var shin = Math.pow(2, 2 + 10 * (1 - P.rough));
+  var specNorm = (shin + 8) / 24;
+  var kd = 1 - P.metal * 0.92;
+  // specular colour: dielectrics are white-ish, metals tint their highlight
+  var s0 = mix(0.05, P.baseCol[0], P.metal);
+  var s1 = mix(0.05, P.baseCol[1], P.metal);
+  var s2 = mix(0.05, P.baseCol[2], P.metal);
+
+  var skyTop = [P.ambCol[0] * 1.05, P.ambCol[1] * 1.05, P.ambCol[2] * 1.15];
+  var skyBot = [P.ambCol[0] * 0.35, P.ambCol[1] * 0.34, P.ambCol[2] * 0.38];
+
+  var i = 0;
+  for (var py = 0; py < H; py++) {
+    var sy = (1 - 2 * (py + 0.5) / H) * tanF;
+    for (var px = 0; px < W; px++) {
+      var sx = (2 * (px + 0.5) / W - 1) * tanF * aspect;
+      var dx = fx + rx * sx + ux * sy, dy = fy + ry * sx + uy * sy, dz = fz + rz * sx + uz * sy;
+      var dl = Math.sqrt(dx * dx + dy * dy + dz * dz); dx /= dl; dy /= dl; dz /= dl;
+
+      var r = 0, g = 0, b = 0;
+      var hit = 0, tBest = 1e9;
+      var nx = 0, ny = 0, nz = 0, hx = 0, hy = 0, hz = 0;
+
+      // sphere
+      var ox = camPos[0] - sphC[0], oy = camPos[1] - sphC[1], oz = camPos[2] - sphC[2];
+      var bq = ox * dx + oy * dy + oz * dz;
+      var cq = ox * ox + oy * oy + oz * oz - sphR * sphR;
+      var disc = bq * bq - cq;
+      if (disc > 0) {
+        var t = -bq - Math.sqrt(disc);
+        if (t > 0.001) { tBest = t; hit = 1; }
+      }
+      // floor
+      if (P.floor && dy < -1e-5) {
+        var tp = -camPos[1] / dy;
+        if (tp > 0.001 && tp < tBest) { tBest = tp; hit = 2; }
+      }
+
+      if (!hit) {
+        // background: the world colour students set is visible here too
+        var tg = clamp(0.5 - sy * 1.6, 0, 1);
+        var amb = P.ambPower;
+        r = mix(skyTop[0], skyBot[0], tg) * (0.25 + amb * 1.6);
+        g = mix(skyTop[1], skyBot[1], tg) * (0.25 + amb * 1.6);
+        b = mix(skyTop[2], skyBot[2], tg) * (0.25 + amb * 1.6);
+      } else {
+        hx = camPos[0] + dx * tBest; hy = camPos[1] + dy * tBest; hz = camPos[2] + dz * tBest;
+        var albR, albG, albB, rough = P.rough, metal = P.metal;
+        var Tx, Ty, Tz, Bx, By, Bz, u, v, texId, texS, bumpAmt;
+
+        if (hit === 1) {
+          nx = (hx - sphC[0]) / sphR; ny = (hy - sphC[1]) / sphR; nz = (hz - sphC[2]) / sphR;
+          u = Math.atan2(nz, nx) / (2 * Math.PI) + 0.5;
+          v = Math.acos(clamp(ny, -1, 1)) / Math.PI;
+          Tx = -nz; Ty = 0; Tz = nx;
+          var tl = Math.sqrt(Tx * Tx + Tz * Tz) || 1; Tx /= tl; Tz /= tl;
+          Bx = ny * Tz - nz * Ty; By = nz * Tx - nx * Tz; Bz = nx * Ty - ny * Tx;
+          texId = P.tex; texS = P.texScale; bumpAmt = P.bump;
+          var hgt = pattern(texId, u, v, texS);
+          var tint = patternTint(texId, hgt);
+          albR = P.baseCol[0] * tint; albG = P.baseCol[1] * tint; albB = P.baseCol[2] * tint;
+        } else {
+          nx = 0; ny = 1; nz = 0;
+          u = hx * 0.25 + 0.5; v = hz * 0.25 + 0.5;
+          Tx = 1; Ty = 0; Tz = 0; Bx = 0; By = 0; Bz = 1;
+          texId = 1; texS = 4; bumpAmt = 0;
+          var fh = pattern(1, u, v, texS);
+          var ft = mix(0.42, 0.72, fh) * P.floorTint;
+          albR = ft; albG = ft; albB = ft * 1.02;
+          rough = 0.55; metal = 0;
+        }
+
+        // bump: read the same pattern twice more and tilt the normal
+        if (bumpAmt > 0.001 && texId !== 0) {
+          var e = 0.9 / (texS * 40);
+          var h0 = pattern(texId, u, v, texS);
+          var hu = pattern(texId, u + e, v, texS);
+          var hv = pattern(texId, u, v + e, texS);
+          var du = (hu - h0) / e * 0.0016 * bumpAmt * texS;
+          var dv = (hv - h0) / e * 0.0016 * bumpAmt * texS;
+          nx -= du * Tx + dv * Bx; ny -= du * Ty + dv * By; nz -= du * Tz + dv * Bz;
+          var nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1; nx /= nl; ny /= nl; nz /= nl;
+        }
+
+        var vx = -dx, vy = -dy, vz = -dz;
+
+        // shadow of the sphere, softened by the light's size
+        var shadow = 1;
+        if (hit === 2) {
+          var qx = sphC[0] - hx, qy = sphC[1] - hy, qz = sphC[2] - hz;
+          var tt = qx * Lx + qy * Ly + qz * Lz;
+          if (tt > 0) {
+            var cxp = qx - Lx * tt, cyp = qy - Ly * tt, czp = qz - Lz * tt;
+            var dist = Math.sqrt(cxp * cxp + cyp * cyp + czp * czp);
+            var pen = 0.02 + P.softness * tt * 0.55;
+            shadow = smoothstep(sphR - pen, sphR + pen, dist);
+          }
+        }
+
+        var shinL = hit === 2 ? Math.pow(2, 2 + 10 * (1 - rough)) : shin;
+        var specNormL = hit === 2 ? (shinL + 8) / 24 : specNorm;
+        var kdL = hit === 2 ? 1 : kd;
+        var sr = hit === 2 ? 0.04 : s0, sg = hit === 2 ? 0.04 : s1, sb = hit === 2 ? 0.04 : s2;
+
+        // --- key light ---
+        var nd = nx * Lx + ny * Ly + nz * Lz;
+        var diff = clamp((nd + wrap) / (1 + wrap), 0, 1) * shadow;
+        var hxv = Lx + vx, hyv = Ly + vy, hzv = Lz + vz;
+        var hl = Math.sqrt(hxv * hxv + hyv * hyv + hzv * hzv) || 1;
+        var nh = clamp((nx * hxv + ny * hyv + nz * hzv) / hl, 0, 1);
+        var spec = Math.pow(nh, shinL) * specNormL * (nd > -0.1 ? 1 : 0) * shadow * (1 - metal * 0.6);
+        var kp = P.lightPower;
+        r += (albR * kdL * diff + sr * spec) * P.lightCol[0] * kp;
+        g += (albG * kdL * diff + sg * spec) * P.lightCol[1] * kp;
+        b += (albB * kdL * diff + sb * spec) * P.lightCol[2] * kp;
+
+        // --- fill light (soft, no shadow) ---
+        if (P.fillPower > 0.001) {
+          var nf = clamp((nx * Fx + ny * Fy + nz * Fz + 0.45) / 1.45, 0, 1);
+          var hfx = Fx + vx, hfy = Fy + vy, hfz = Fz + vz;
+          var hfl = Math.sqrt(hfx * hfx + hfy * hfy + hfz * hfz) || 1;
+          var nhf = clamp((nx * hfx + ny * hfy + nz * hfz) / hfl, 0, 1);
+          var sf = Math.pow(nhf, shinL) * specNormL * 0.5;
+          r += (albR * kdL * nf + sr * sf) * P.fillCol[0] * P.fillPower;
+          g += (albG * kdL * nf + sg * sf) * P.fillCol[1] * P.fillPower;
+          b += (albB * kdL * nf + sb * sf) * P.fillCol[2] * P.fillPower;
+        }
+
+        // --- rim / back light: only bites at grazing angles ---
+        if (P.rimPower > 0.001 && hit === 1) {
+          var nr = clamp(nx * Rx + ny * Ry + nz * Rz, 0, 1);
+          var fres = Math.pow(1 - clamp(nx * vx + ny * vy + nz * vz, 0, 1), 2.0);
+          var rim = Math.pow(nr, 0.75) * (0.55 + 1.5 * fres) * 1.5 * P.rimPower;
+          r += rim * P.rimCol[0] * (0.45 + albR * 0.55);
+          g += rim * P.rimCol[1] * (0.45 + albG * 0.55);
+          b += rim * P.rimCol[2] * (0.45 + albB * 0.55);
+        }
+
+        // --- reflections: what the surface mirrors back at the camera ---
+        var ndv = clamp(nx * vx + ny * vy + nz * vz, 0, 1);
+        var reflW = metal * (1 - rough * 0.72) +
+                    (1 - metal) * (0.03 + 0.4 * Math.pow(1 - ndv, 4)) * (1 - rough * 0.9);
+        if (reflW > 0.004) {
+          var nd2 = nx * dx + ny * dy + nz * dz;
+          var ex2 = dx - 2 * nd2 * nx, ey2 = dy - 2 * nd2 * ny, ez2 = dz - 2 * nd2 * nz;
+          var el2 = Math.sqrt(ex2 * ex2 + ey2 * ey2 + ez2 * ez2) || 1;
+          ex2 /= el2; ey2 /= el2; ez2 /= el2;
+          var blur = clamp(rough * rough * 2.4, 0, 1);
+          var er, eg, eb;
+          if (P.floor && ey2 < -0.03 && hy > 0.001) {
+            var tf2 = -hy / ey2;
+            var fu = (hx + ex2 * tf2) * 0.25 + 0.5, fv = (hz + ez2 * tf2) * 0.25 + 0.5;
+            var fh2 = mix(pattern(1, fu, fv, 4), 0.5, clamp(blur + tf2 * 0.035, 0, 1));
+            var fc = mix(0.42, 0.72, fh2) * P.floorTint;
+            var hf = smoothstep(0.0, 0.30, -ey2);
+            er = mix(skyBot[0], fc, hf); eg = mix(skyBot[1], fc, hf); eb = mix(skyBot[2], fc * 1.02, hf);
+          } else {
+            var tsky = clamp(0.5 + ey2 * 0.85, 0, 1);
+            tsky = mix(tsky, 0.5, blur * 0.6);
+            er = mix(skyBot[0], skyTop[0], tsky);
+            eg = mix(skyBot[1], skyTop[1], tsky);
+            eb = mix(skyBot[2], skyTop[2], tsky);
+          }
+          // a bright blob where the key light sits, blurred by roughness
+          var sd = clamp(ex2 * Lx + ey2 * Ly + ez2 * Lz, 0, 1);
+          var sunEdge = mix(0.992, 0.45, blur);
+          var sun = smoothstep(sunEdge, sunEdge + (1 - sunEdge) * 0.7, sd) *
+                    P.lightPower * mix(7.0, 1.1, blur) * metal;
+          er += P.lightCol[0] * sun; eg += P.lightCol[1] * sun; eb += P.lightCol[2] * sun;
+          var ee = (0.50 + P.ambPower * 2.6) * reflW;
+          r += er * ee * mix(1, albR, metal);
+          g += eg * ee * mix(1, albG, metal);
+          b += eb * ee * mix(1, albB, metal);
+        }
+
+        // --- ambient / world light, hemisphere weighted ---
+        var hemi = 0.5 + 0.5 * ny;
+        var ao = 1;
+        if (hit === 2) {
+          var d2 = Math.sqrt(hx * hx + hz * hz);
+          ao = 0.25 + 0.75 * smoothstep(0.85, 2.6, d2);   // contact shadow
+        } else {
+          ao = 0.55 + 0.45 * hemi;
+        }
+        var ap = P.ambPower * ao;
+        r += albR * mix(skyBot[0], skyTop[0], hemi) * ap;
+        g += albG * mix(skyBot[1], skyTop[1], hemi) * ap;
+        b += albB * mix(skyBot[2], skyTop[2], hemi) * ap;
+
+        // --- bounce light off the floor onto the underside ---
+        if (hit === 1 && P.floor) {
+          var bnc = clamp(-ny, 0, 1) * 0.16 * P.lightPower * P.floorTint;
+          r += albR * bnc * P.lightCol[0];
+          g += albG * bnc * P.lightCol[1];
+          b += albB * bnc * P.lightCol[2];
+        }
+
+        if (hit === 2) {
+          var fogT = smoothstep(7, 26, tBest);
+          var tg2 = clamp(0.5 - sy * 1.6, 0, 1);
+          var ampl = (0.25 + P.ambPower * 1.6);
+          r = mix(r, mix(skyTop[0], skyBot[0], tg2) * ampl, fogT);
+          g = mix(g, mix(skyTop[1], skyBot[1], tg2) * ampl, fogT);
+          b = mix(b, mix(skyTop[2], skyBot[2], tg2) * ampl, fogT);
+        }
+      }
+
+      // exposure, tonemap, gamma
+      var ex = P.exposure;
+      r *= ex; g *= ex; b *= ex;
+      r = r / (1 + r); g = g / (1 + g); b = b / (1 + b);
+      buf[i++] = Math.pow(clamp(r, 0, 1), 1 / 2.2) * 255;
+      buf[i++] = Math.pow(clamp(g, 0, 1), 1 / 2.2) * 255;
+      buf[i++] = Math.pow(clamp(b, 0, 1), 1 / 2.2) * 255;
+      buf[i++] = 255;
+    }
+  }
+}
+
+
+/* ==========================================================
+   App layer: labs, sliders, diagrams, presets, challenge, quiz
+   ========================================================== */
+(function () {
+'use strict';
+
+var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- state model ---------- */
+function baseState() {
+  return {
+    az: 42, el: 40, power: 1.4, size: 0.28, kelvin: 5200,
+    world: 0.22, worldH: 215, worldS: 0.18,
+    lightMode: 'kelvin', lightH: 40, lightS: 0.0,
+    baseH: 18, baseS: 0.62, baseV: 0.82,
+    fill: 0, fillH: 210, fillS: 0.35,
+    rim: 0, rimH: 40, rimS: 0.0,
+    rough: 0.34, metal: 0, tex: 0, texScale: 6, bump: 0,
+    floorTint: 0.6, exposure: 1
+  };
+}
+
+function toRender(st) {
+  var p = defaultParams();
+  p.lightAz = st.az; p.lightEl = st.el; p.lightPower = st.power; p.softness = st.size;
+  p.lightCol = st.lightMode === 'kelvin' ? kelvinToRgb(st.kelvin) : hsvToRgb(st.lightH, st.lightS, 1);
+  p.ambPower = st.world; p.ambCol = hsvToRgb(st.worldH, st.worldS, 1);
+  p.baseCol = hsvToRgb(st.baseH, st.baseS, st.baseV);
+  p.fillPower = st.fill; p.fillCol = hsvToRgb(st.fillH, st.fillS, 1);
+  p.rimPower = st.rim; p.rimCol = hsvToRgb(st.rimH, st.rimS, 1);
+  p.rough = st.rough; p.metal = st.metal;
+  p.tex = st.tex; p.texScale = st.texScale; p.bump = st.bump;
+  p.floorTint = st.floorTint; p.exposure = st.exposure;
+  return p;
+}
+
+function css(c) {
+  return 'rgb(' + Math.round(Math.pow(clamp(c[0], 0, 1), 1 / 2.2) * 255) + ',' +
+    Math.round(Math.pow(clamp(c[1], 0, 1), 1 / 2.2) * 255) + ',' +
+    Math.round(Math.pow(clamp(c[2], 0, 1), 1 / 2.2) * 255) + ')';
+}
+function b255(c) { return Math.round(clamp(c, 0, 1) * 255); }
+
+/* ---------- the render surface ---------- */
+function Lab(canvas, state, onDraw) {
+  this.cv = canvas;
+  this.ctx = canvas.getContext('2d');
+  this.off = document.createElement('canvas');
+  this.offCtx = this.off.getContext('2d');
+  this.st = state;
+  this.onDraw = onDraw || null;
+  this.qLow = 0.42; this.qHigh = 0.8;
+  this.dirty = true; this.visible = false; this.idleTimer = 0;
+  this.maxW = 520;
+  var self = this;
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (e) {
+      self.visible = e[0].isIntersecting;
+      if (self.visible) self.invalidate(false);
+    }, { rootMargin: '150px' }).observe(canvas);
+  } else { this.visible = true; }
+  LABS.push(this);
+}
+
+Lab.prototype.invalidate = function (quick) {
+  this.dirty = true;
+  this.quick = !!quick;
+  if (this.onDraw) this.onDraw(this.st);
+  var self = this;
+  clearTimeout(this.idleTimer);
+  if (quick) {
+    this.idleTimer = setTimeout(function () { self.dirty = true; self.quick = false; }, 200);
+  }
+};
+
+Lab.prototype.draw = function () {
+  var box = this.cv.getBoundingClientRect();
+  if (box.width < 8) return;
+  var q = this.quick ? this.qLow : this.qHigh;
+  var W = Math.max(80, Math.min(this.maxW, Math.round(box.width * q)));
+  var H = Math.max(60, Math.round(W * (box.height / box.width)));
+  if (this.off.width !== W || this.off.height !== H) {
+    this.off.width = W; this.off.height = H;
+    this.img = this.offCtx.createImageData(W, H);
+  }
+  var t0 = performance.now();
+  renderScene(this.img.data, W, H, toRender(this.st));
+  var ms = performance.now() - t0;
+  this.offCtx.putImageData(this.img, 0, 0);
+
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cw = Math.round(box.width * dpr), ch = Math.round(box.height * dpr);
+  if (this.cv.width !== cw || this.cv.height !== ch) { this.cv.width = cw; this.cv.height = ch; }
+  this.ctx.imageSmoothingEnabled = true;
+  this.ctx.imageSmoothingQuality = 'high';
+  this.ctx.drawImage(this.off, 0, 0, cw, ch);
+
+  // keep the interactive pass near 30 ms so dragging stays smooth on a school laptop
+  if (this.quick) {
+    if (ms > 38 && this.qLow > 0.26) this.qLow -= 0.05;
+    else if (ms < 15 && this.qLow < 0.7) this.qLow += 0.04;
+  } else if (ms > 130 && this.qHigh > 0.45) { this.qHigh -= 0.08; }
+  this.dirty = false;
+};
+
+var LABS = [];
+function frame() {
+  for (var i = 0; i < LABS.length; i++) {
+    var L = LABS[i];
+    if (L.dirty && L.visible) { L.draw(); break; }   // one lab per frame keeps it responsive
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+var resizeT = 0;
+window.addEventListener('resize', function () {
+  clearTimeout(resizeT);
+  resizeT = setTimeout(function () {
+    for (var i = 0; i < LABS.length; i++) LABS[i].invalidate(false);
+  }, 180);
+});
+
+/* ---------- slider factory ---------- */
+var HUE_BAR = 'linear-gradient(90deg,#f44,#fd3,#5f5,#3ff,#46f,#f4f,#f44)';
+function kelvinBar() {
+  var stops = [];
+  for (var k = 1600; k <= 10000; k += 700) {
+    var c = kelvinToRgb(k);
+    stops.push('rgb(' + b255(c[0]) + ',' + b255(c[1]) + ',' + b255(c[2]) + ') ' +
+      Math.round((k - 1600) / 8400 * 100) + '%');
+  }
+  return 'linear-gradient(90deg,' + stops.join(',') + ')';
+}
+
+var SLIDER_DEFS = {
+  az:      { label: 'Light direction', min: 0, max: 360, step: 1, unit: '\u00b0', blender: 'move the light object',
+             desc: function (v) { return v < 30 || v > 330 ? 'in front, near the camera' : v < 75 ? 'front right' : v < 105 ? 'straight from the right' : v < 150 ? 'back right' : v < 210 ? 'behind the ball' : v < 255 ? 'back left' : v < 285 ? 'straight from the left' : 'front left'; } },
+  el:      { label: 'Light height', min: -40, max: 88, step: 1, unit: '\u00b0', blender: 'move the light object',
+             desc: function (v) { return v < 0 ? 'below — horror movie territory' : v < 20 ? 'low, long shadows' : v < 55 ? 'the classic portrait height' : 'overhead, shadows shrink under the ball'; } },
+  power:   { label: 'Brightness', min: 0, max: 3, step: 0.05, blender: 'Power, in watts' },
+  size:    { label: 'Light size', min: 0, max: 1, step: 0.01, blender: 'Size, or Angle on a sun',
+             desc: function (v) { return v < 0.12 ? 'tiny source, razor sharp shadow' : v < 0.4 ? 'a lamp or a small softbox' : v < 0.75 ? 'a big softbox or a window' : 'the whole overcast sky'; } },
+  kelvin:  { label: 'Colour temperature', min: 1600, max: 10000, step: 50, unit: 'K', bar: kelvinBar, blender: 'Blackbody node into Color',
+             desc: function (v) { return v < 2100 ? 'candle flame' : v < 3200 ? 'old-school bedroom lamp' : v < 4600 ? 'warm white LED' : v < 6200 ? 'midday sun' : v < 7800 ? 'overcast daylight' : 'open shade, screen glow'; } },
+  world:   { label: 'World light', min: 0, max: 0.8, step: 0.01, blender: 'World Strength',
+             desc: function (v) { return v < 0.05 ? 'deep space — shadows go pure black' : v < 0.3 ? 'normal-ish' : 'flat, foggy, no contrast left'; } },
+  worldH:  { label: 'World colour', min: 0, max: 360, step: 1, unit: '\u00b0', bar: function () { return HUE_BAR; }, blender: 'World Color' },
+  fill:    { label: 'Fill light', min: 0, max: 1.2, step: 0.01, blender: 'second light, lower Power',
+             desc: function (v) { return v < 0.05 ? 'no fill: shadows are on their own' : v < 0.35 ? 'moody, still readable' : v < 0.75 ? 'balanced, TV interview' : 'almost as strong as the key — flat'; } },
+  rim:     { label: 'Rim light', min: 0, max: 2, step: 0.01, blender: 'third light, behind the subject' },
+  rimH:    { label: 'Rim colour', min: 0, max: 360, step: 1, unit: '\u00b0', bar: function () { return HUE_BAR; }, blender: 'Color on the rim light' },
+  baseH:   { label: 'Surface hue', min: 0, max: 360, step: 1, unit: '\u00b0', bar: function () { return HUE_BAR; }, blender: 'Base Color, H' },
+  baseS:   { label: 'Saturation', min: 0, max: 1, step: 0.01, blender: 'Base Color, S',
+             desc: function (v) { return v > 0.9 ? 'nothing real is this saturated' : v < 0.1 ? 'basically grey' : ''; } },
+  baseV:   { label: 'Value', min: 0.05, max: 1, step: 0.01, blender: 'Base Color, V' },
+  lightH:  { label: 'Light hue', min: 0, max: 360, step: 1, unit: '\u00b0', bar: function () { return HUE_BAR; }, blender: 'Color on the light' },
+  lightS:  { label: 'Light saturation', min: 0, max: 1, step: 0.01, blender: 'Color on the light',
+             desc: function (v) { return v > 0.6 ? 'strong gel — kills any colour it does not contain' : ''; } },
+  rough:   { label: 'Roughness', min: 0, max: 1, step: 0.01, blender: 'Roughness',
+             desc: function (v) { return v < 0.08 ? 'mirror, wet paint, glass' : v < 0.3 ? 'polished plastic, car paint' : v < 0.6 ? 'satin, worn plastic' : v < 0.85 ? 'rubber, dry stone' : 'chalk, felt, unfired clay'; } },
+  metal:   { label: 'Metallic', min: 0, max: 1, step: 0.01, blender: 'Metallic',
+             desc: function (v) { return v > 0.05 && v < 0.95 ? 'half metal is not a real material — use 0 or 1' : v >= 0.95 ? 'a metal: its colour tints the reflection' : 'not a metal'; } },
+  texScale: { label: 'Pattern size', min: 1, max: 20, step: 0.1, blender: 'Scale on a Mapping node' },
+  bump:    { label: 'Bump depth', min: 0, max: 1.5, step: 0.01, blender: 'Strength on a Bump node',
+             desc: function (v) { return v > 0.02 ? 'watch the outline — it never changes' : 'flat'; } }
+};
+
+function fmt(key, v) {
+  var d = SLIDER_DEFS[key];
+  var s = (d.step >= 1) ? String(Math.round(v)) : v.toFixed(2);
+  return s + (d.unit || '');
+}
+
+function makeSliders(host, lab, keys) {
+  host.innerHTML = '';
+  lab.inputs = lab.inputs || {};
+  keys.forEach(function (key) {
+    var d = SLIDER_DEFS[key];
+    var wrap = document.createElement('div'); wrap.className = 'sl';
+    var id = 'sl_' + Math.random().toString(36).slice(2, 8);
+    wrap.innerHTML =
+      '<div class="sl-top"><label class="sl-lab" for="' + id + '">' + d.label + '</label>' +
+      '<span class="sl-val"></span></div>' +
+      '<input type="range" id="' + id + '" min="' + d.min + '" max="' + d.max + '" step="' + d.step + '">' +
+      '<div class="sl-hint"></div>' +
+      '<div class="sl-blend">Blender: ' + d.blender + '</div>';
+    var input = wrap.querySelector('input');
+    var val = wrap.querySelector('.sl-val');
+    var hint = wrap.querySelector('.sl-hint');
+    input.value = lab.st[key];
+    var paint = function () {
+      var v = parseFloat(input.value);
+      val.textContent = fmt(key, v);
+      hint.textContent = d.desc ? d.desc(v) : '';
+      if (d.bar) { input.style.setProperty('--trk', d.bar()); }
+      else {
+        var pct = ((v - d.min) / (d.max - d.min)) * 100;
+        input.style.setProperty('--trk',
+          'linear-gradient(90deg,#ffb45c 0%,#ffb45c ' + pct + '%,#333c4b ' + pct + '%,#333c4b 100%)');
+      }
+    };
+    input.addEventListener('input', function () {
+      lab.st[key] = parseFloat(input.value);
+      paint();
+      lab.invalidate(true);
+    });
+    paint();
+    lab.inputs[key] = { input: input, paint: paint };
+    host.appendChild(wrap);
+  });
+}
+
+function syncInputs(lab) {
+  if (!lab.inputs) return;
+  for (var k in lab.inputs) {
+    lab.inputs[k].input.value = lab.st[k];
+    lab.inputs[k].paint();
+  }
+}
+
+/* animate a preset so students see which way each value moved */
+function applyPatch(lab, patch, ms) {
+  ms = (reduceMotion ? 0 : (ms || 420));
+  var from = {}, keys = [];
+  for (var k in patch) { from[k] = lab.st[k]; keys.push(k); }
+  if (ms === 0) {
+    keys.forEach(function (k) { lab.st[k] = patch[k]; });
+    syncInputs(lab); lab.invalidate(false); return;
+  }
+  var t0 = performance.now();
+  (function step() {
+    var t = clamp((performance.now() - t0) / ms, 0, 1);
+    var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    keys.forEach(function (k) {
+      lab.st[k] = (typeof patch[k] === 'number' && typeof from[k] === 'number')
+        ? from[k] + (patch[k] - from[k]) * e : patch[k];
+    });
+    syncInputs(lab);
+    lab.invalidate(t < 1);
+    if (t < 1) requestAnimationFrame(step);
+  })();
+}
+
+function makePresets(host, lab, list) {
+  host.innerHTML = '';
+  list.forEach(function (pr) {
+    var b = document.createElement('button');
+    b.className = 'btn btn-sm'; b.textContent = pr.name;
+    b.addEventListener('click', function () { applyPatch(lab, pr.patch); });
+    host.appendChild(b);
+  });
+}
+
+/* ---------- rig diagrams ---------- */
+function rigSVG(st, mode) {
+  var s = '';
+  var cx = 82, cy = 74, R = 52;
+  var az = st.az * Math.PI / 180, el = st.el * Math.PI / 180;
+  s += '<rect x="0" y="0" width="340" height="150" fill="none"/>';
+  s += '<text x="10" y="16" fill="#7e8697" font-family="Consolas,monospace" font-size="10.5">from above</text>';
+  s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="none" stroke="#2e3644" stroke-dasharray="3 4"/>';
+  // camera
+  s += '<g opacity=".85"><path d="M' + (cx - 7) + ' 140 L' + (cx + 7) + ' 140 L' + cx + ' 128 Z" fill="#6db3ff"/>' +
+       '<text x="' + (cx + 12) + '" y="140" fill="#6db3ff" font-family="Consolas,monospace" font-size="10">camera</text></g>';
+  s += '<circle cx="' + cx + '" cy="' + cy + '" r="15" fill="#39414f"/>';
+
+  function lampTop(angle, colour, power, size, tag) {
+    var lx = cx + Math.sin(angle) * R, ly = cy + Math.cos(angle) * R;
+    var r = 4 + size * 9;
+    var op = clamp(0.22 + power * 0.55, 0.1, 1);
+    var g = '<line x1="' + lx.toFixed(1) + '" y1="' + ly.toFixed(1) + '" x2="' + cx + '" y2="' + cy +
+      '" stroke="' + colour + '" stroke-width="1" opacity="' + (op * 0.55).toFixed(2) + '"/>';
+    g += '<circle cx="' + lx.toFixed(1) + '" cy="' + ly.toFixed(1) + '" r="' + r.toFixed(1) +
+      '" fill="' + colour + '" opacity="' + op.toFixed(2) + '"/>';
+    if (tag) g += '<text x="' + (lx + r + 3).toFixed(1) + '" y="' + (ly + 3).toFixed(1) +
+      '" fill="' + colour + '" font-family="Consolas,monospace" font-size="10">' + tag + '</text>';
+    return g;
+  }
+
+  if (mode === 'three') {
+    s += lampTop(az, '#ffb45c', st.power, st.size, 'key');
+    s += lampTop(-az, '#6db3ff', st.fill, 0.8, 'fill');
+    s += lampTop(az + 165 * Math.PI / 180, css(hsvToRgb(st.rimH, 0.8, 1)), st.rim * 0.6, 0.3, 'rim');
+    s += '<text x="196" y="16" fill="#7e8697" font-family="Consolas,monospace" font-size="10.5">what each light does</text>';
+    var rows = [['key', '#ffb45c', 'shapes the subject'], ['fill', '#6db3ff', 'lifts the shadow side'],
+                ['rim', '#ff6b9d', 'separates it from the background']];
+    rows.forEach(function (r, i) {
+      var y = 44 + i * 26;
+      s += '<circle cx="204" cy="' + (y - 4) + '" r="5" fill="' + r[1] + '"/>';
+      s += '<text x="216" y="' + y + '" fill="#aeb6c4" font-family="Consolas,monospace" font-size="10.5">' + r[0] + ' — ' + r[2] + '</text>';
+    });
+    return s;
+  }
+
+  s += lampTop(az, '#ffb45c', st.power, st.size, '');
+  // side view
+  var ox = 252, oy = 92, gy = 108;
+  s += '<text x="196" y="16" fill="#7e8697" font-family="Consolas,monospace" font-size="10.5">from the side</text>';
+  s += '<line x1="196" y1="' + gy + '" x2="330" y2="' + gy + '" stroke="#2e3644"/>';
+  s += '<circle cx="' + ox + '" cy="' + oy + '" r="15" fill="#39414f"/>';
+  var dir = Math.sin(az) >= 0 ? 1 : -1;
+  var lx2 = ox + Math.cos(el) * R * dir, ly2 = oy - Math.sin(el) * R;
+  var rr = 4 + st.size * 9;
+  var op2 = clamp(0.22 + st.power * 0.55, 0.1, 1);
+  s += '<line x1="' + lx2.toFixed(1) + '" y1="' + ly2.toFixed(1) + '" x2="' + ox + '" y2="' + oy +
+       '" stroke="#ffb45c" stroke-width="1" opacity="' + (op2 * 0.55).toFixed(2) + '"/>';
+  s += '<path d="M' + (ox + 26 * dir) + ' ' + oy + ' A 26 26 0 0 ' + (dir > 0 ? 0 : 1) + ' ' +
+       (ox + Math.cos(el) * 26 * dir).toFixed(1) + ' ' + (oy - Math.sin(el) * 26).toFixed(1) +
+       '" fill="none" stroke="#596274" stroke-width="1"/>';
+  s += '<text x="' + (ox + 6 * dir) + '" y="' + (oy - 8) + '" fill="#8d97a8" font-family="Consolas,monospace" font-size="10">' +
+       Math.round(st.el) + '\u00b0</text>';
+  s += '<circle cx="' + lx2.toFixed(1) + '" cy="' + ly2.toFixed(1) + '" r="' + rr.toFixed(1) +
+       '" fill="#ffb45c" opacity="' + op2.toFixed(2) + '"/>';
+  return s;
+}
+
+/* ---------- colour wheel ---------- */
+function wheelSVG(hue) {
+  var s = '', cx = 110, cy = 110, r0 = 58, r1 = 92;
+  for (var i = 0; i < 36; i++) {
+    var a0 = (i * 10 - 90) * Math.PI / 180, a1 = ((i + 1) * 10 - 90) * Math.PI / 180;
+    var c = hsvToRgb(i * 10, 0.75, 1);
+    s += '<path d="M' + (cx + Math.cos(a0) * r0).toFixed(1) + ' ' + (cy + Math.sin(a0) * r0).toFixed(1) +
+      ' L' + (cx + Math.cos(a0) * r1).toFixed(1) + ' ' + (cy + Math.sin(a0) * r1).toFixed(1) +
+      ' A' + r1 + ' ' + r1 + ' 0 0 1 ' + (cx + Math.cos(a1) * r1).toFixed(1) + ' ' + (cy + Math.sin(a1) * r1).toFixed(1) +
+      ' L' + (cx + Math.cos(a1) * r0).toFixed(1) + ' ' + (cy + Math.sin(a1) * r0).toFixed(1) +
+      ' A' + r0 + ' ' + r0 + ' 0 0 0 ' + (cx + Math.cos(a0) * r0).toFixed(1) + ' ' + (cy + Math.sin(a0) * r0).toFixed(1) + ' Z" fill="' + css(c) + '"/>';
+  }
+  function mark(h, label, colour) {
+    var a = (h - 90) * Math.PI / 180;
+    var x = cx + Math.cos(a) * 75, y = cy + Math.sin(a) * 75;
+    var xo = cx + Math.cos(a) * 34, yo = cy + Math.sin(a) * 34;
+    return '<line x1="' + cx + '" y1="' + cy + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) +
+      '" stroke="#12141a" stroke-width="3"/><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) +
+      '" r="9" fill="none" stroke="#fff" stroke-width="3"/>' +
+      '<text x="' + xo.toFixed(1) + '" y="' + yo.toFixed(1) + '" fill="' + colour +
+      '" font-family="Consolas,monospace" font-size="11" text-anchor="middle">' + label + '</text>';
+  }
+  s += mark(hue, 'yours', '#edeae5');
+  s += mark((hue + 180) % 360, 'opposite', '#aeb6c4');
+  return s;
+}
+
+/* ---------- LAB 1 : light ---------- */
+var lab1 = new Lab(document.getElementById('c1'), baseState(), function (st) {
+  document.getElementById('rig1').innerHTML = rigSVG(st, 'one');
+  document.getElementById('ro1a').style.background = css(kelvinToRgb(st.kelvin));
+  document.getElementById('ro1b').style.background = css(hsvToRgb(st.worldH, st.worldS, 1));
+  document.getElementById('ro1c').textContent =
+    Math.round(st.kelvin) + 'K key at ' + Math.round(st.el) + '\u00b0 high, world at ' + st.world.toFixed(2);
+});
+lab1.st.tex = 0; lab1.st.rough = 0.34;
+makeSliders(document.getElementById('s1'), lab1, ['az', 'el', 'power', 'size', 'kelvin', 'world']);
+makePresets(document.getElementById('p1'), lab1, [
+  { name: 'Midday sun', patch: { az: 20, el: 76, power: 1.8, size: 0.04, kelvin: 5600, world: 0.26 } },
+  { name: 'Golden hour', patch: { az: 124, el: 8, power: 2.2, size: 0.22, kelvin: 2450, world: 0.22 } },
+  { name: 'Overcast', patch: { az: 30, el: 62, power: 0.85, size: 1, kelvin: 6900, world: 0.42 } },
+  { name: 'Campfire', patch: { az: 4, el: 11, power: 1.9, size: 0.3, kelvin: 1850, world: 0.04 } },
+  { name: 'Torch under the chin', patch: { az: 0, el: -30, power: 1.5, size: 0.07, kelvin: 5200, world: 0.02 } },
+  { name: 'Studio softbox', patch: { az: 46, el: 38, power: 1.5, size: 0.82, kelvin: 5200, world: 0.12 } }
+]);
+
+var orbiting = false;
+document.getElementById('orbit1').addEventListener('click', function () {
+  orbiting = !orbiting;
+  this.setAttribute('aria-pressed', orbiting ? 'true' : 'false');
+  this.textContent = orbiting ? 'Stop the light' : 'Orbit the light';
+  if (orbiting) orbitStep();
+});
+function orbitStep() {
+  if (!orbiting) return;
+  lab1.st.az = (lab1.st.az + 1.6) % 360;
+  syncInputs(lab1);
+  lab1.invalidate(true);
+  setTimeout(orbitStep, 40);
+}
+
+/* ---------- LAB 2 : three point ---------- */
+var s2state = baseState();
+s2state.world = 0.07; s2state.power = 1.5; s2state.fill = 0.4; s2state.rim = 0.7;
+s2state.rimH = 205; s2state.rimS = 0.55; s2state.baseS = 0.45; s2state.rough = 0.4;
+var lab2 = new Lab(document.getElementById('c2'), s2state, function (st) {
+  document.getElementById('rig2').innerHTML = rigSVG(st, 'three');
+});
+makeSliders(document.getElementById('s2'), lab2, ['power', 'fill', 'rim', 'rimH', 'az']);
+makePresets(document.getElementById('p2'), lab2, [
+  { name: 'TV interview', patch: { power: 1.4, fill: 0.55, rim: 0.55, rimH: 40, rimS: 0.1 } },
+  { name: 'Drama', patch: { power: 1.7, fill: 0.05, rim: 0.35, rimH: 210, rimS: 0.5 } },
+  { name: 'Esports poster', patch: { power: 1.1, fill: 0.12, rim: 1.7, rimH: 315, rimS: 0.85 } },
+  { name: 'Passport photo', patch: { power: 1.3, fill: 1.1, rim: 0, rimH: 40, rimS: 0 } }
+]);
+
+/* ---------- LAB 3 : colour ---------- */
+var s3 = baseState();
+s3.lightMode = 'hsv'; s3.lightH = 40; s3.lightS = 0.12; s3.world = 0.24; s3.worldH = 215; s3.worldS = 0.3;
+s3.baseH = 200; s3.baseS = 0.6; s3.baseV = 0.85; s3.rough = 0.3;
+var lab3 = new Lab(document.getElementById('c3'), s3, function (st) {
+  var o = hsvToRgb(st.baseH, st.baseS, st.baseV), l = hsvToRgb(st.lightH, st.lightS, 1);
+  var res = [o[0] * l[0], o[1] * l[1], o[2] * l[2]];
+  document.getElementById('mxObj').style.background = css(o);
+  document.getElementById('mxLit').style.background = css(l);
+  document.getElementById('mxRes').style.background = css(res);
+  document.getElementById('mxObjV').textContent = b255(o[0]) + ', ' + b255(o[1]) + ', ' + b255(o[2]);
+  document.getElementById('mxLitV').textContent = b255(l[0]) + ', ' + b255(l[1]) + ', ' + b255(l[2]);
+  document.getElementById('mxResV').textContent = b255(res[0]) + ', ' + b255(res[1]) + ', ' + b255(res[2]);
+  document.getElementById('ro3a').style.background = css(o);
+  document.getElementById('ro3b').style.background = css(l);
+  document.getElementById('ro3c').style.background = css(hsvToRgb(st.worldH, st.worldS, 1));
+  document.getElementById('wheel').innerHTML = wheelSVG(st.baseH);
+});
+makeSliders(document.getElementById('s3'), lab3, ['baseH', 'baseS', 'baseV', 'lightH', 'lightS', 'worldH', 'world']);
+makePresets(document.getElementById('p3'), lab3, [
+  { name: 'Neutral studio', patch: { baseH: 200, baseS: 0.55, baseV: 0.85, lightH: 40, lightS: 0.05, worldH: 215, worldS: 0.15, world: 0.25 } },
+  { name: 'Orange and teal', patch: { baseH: 26, baseS: 0.7, baseV: 0.9, lightH: 34, lightS: 0.35, worldH: 190, worldS: 0.65, world: 0.32 } },
+  { name: 'Sci-fi corridor', patch: { baseH: 220, baseS: 0.25, baseV: 0.75, lightH: 315, lightS: 0.7, worldH: 185, worldS: 0.8, world: 0.3 } },
+  { name: 'The colour trap', patch: { baseH: 0, baseS: 0.95, baseV: 0.85, lightH: 180, lightS: 1, worldH: 180, worldS: 0.6, world: 0.06 } },
+  { name: 'Sunset', patch: { baseH: 44, baseS: 0.4, baseV: 0.9, lightH: 18, lightS: 0.6, worldH: 250, worldS: 0.5, world: 0.28 } }
+]);
+
+/* ---------- LAB 4 : material ---------- */
+var s4 = baseState();
+s4.tex = 2; s4.texScale = 5; s4.bump = 0.8; s4.rough = 0.6; s4.baseH = 14; s4.baseS = 0.55;
+s4.world = 0.26; s4.size = 0.3; s4.az = 50; s4.el = 44;
+var TEXNAMES = ['Plain', 'Checker', 'Bricks', 'Rock', 'Dots', 'Stripes', 'Weave'];
+var lab4 = new Lab(document.getElementById('c4'), s4, function (st) {
+  document.getElementById('ro4').textContent =
+    TEXNAMES[st.tex] + ', scale ' + st.texScale.toFixed(1) + ', bump ' + st.bump.toFixed(2) +
+    ', roughness ' + st.rough.toFixed(2) + ', metallic ' + st.metal.toFixed(2);
+  var kids = document.getElementById('p4tex').children;
+  for (var i = 0; i < kids.length; i++) kids[i].setAttribute('aria-pressed', i === st.tex ? 'true' : 'false');
+});
+makeSliders(document.getElementById('s4'), lab4, ['texScale', 'bump', 'rough', 'metal', 'baseH', 'baseS']);
+(function () {
+  var host = document.getElementById('p4tex');
+  TEXNAMES.forEach(function (n, i) {
+    var b = document.createElement('button');
+    b.className = 'btn btn-sm'; b.textContent = n; b.setAttribute('aria-pressed', i === s4.tex ? 'true' : 'false');
+    b.addEventListener('click', function () { lab4.st.tex = i; lab4.invalidate(false); });
+    host.appendChild(b);
+  });
+})();
+makePresets(document.getElementById('p4'), lab4, [
+  { name: 'Rough plastic', patch: { rough: 0.62, metal: 0, bump: 0.2, tex: 0 } },
+  { name: 'Glossy plastic', patch: { rough: 0.08, metal: 0, tex: 0, bump: 0, baseS: 0.75 } },
+  { name: 'Brushed metal', patch: { rough: 0.4, metal: 1, tex: 5, texScale: 19, bump: 0.12, baseS: 0.1, baseV: 0.9 } },
+  { name: 'Polished chrome', patch: { rough: 0.03, metal: 1, tex: 0, bump: 0, baseS: 0.02, baseV: 0.95 } },
+  { name: 'Wet stone', patch: { rough: 0.12, metal: 0, tex: 3, texScale: 8, bump: 0.7, baseS: 0.18, baseV: 0.55 } },
+  { name: 'Dry chalk', patch: { rough: 0.98, metal: 0, tex: 3, texScale: 9, bump: 0.5, baseS: 0.1, baseV: 0.9 } }
+]);
+document.getElementById('flatten').addEventListener('click', function () {
+  var keep = lab4.st.bump || 0.8;
+  applyPatch(lab4, { bump: 0 }, 700);
+  setTimeout(function () { applyPatch(lab4, { bump: keep }, 900); }, 1300);
+});
+
+/* ---------- reset buttons ---------- */
+var RESETS = { 1: lab1, 2: lab2, 3: lab3, 4: lab4 };
+var DEFAULTS = { 1: JSON.stringify(lab1.st), 2: JSON.stringify(lab2.st), 3: JSON.stringify(lab3.st), 4: JSON.stringify(lab4.st) };
+Array.prototype.forEach.call(document.querySelectorAll('[data-reset]'), function (b) {
+  b.addEventListener('click', function () {
+    var n = b.getAttribute('data-reset');
+    applyPatch(RESETS[n], JSON.parse(DEFAULTS[n]), 350);
+  });
+});
+
+/* ---------- comparison pair ---------- */
+(function () {
+  var a = baseState();
+  a.az = 8; a.el = 86; a.power = 1.5; a.size = 0.5; a.kelvin = 6500; a.world = 0.3;
+  a.baseH = 22; a.baseS = 0.45; a.baseV = 0.8; a.rough = 0.5; a.tex = 0;
+  var b = baseState();
+  b.az = 58; b.el = 34; b.power = 1.8; b.size = 0.35; b.kelvin = 3400; b.world = 0.3;
+  b.worldH = 210; b.worldS = 0.7; b.baseH = 20; b.baseS = 0.6; b.baseV = 0.85;
+  b.rough = 0.24; b.tex = 3; b.texScale = 9; b.bump = 0.55; b.rim = 0.5; b.rimH = 205; b.rimS = 0.5;
+  var la = new Lab(document.getElementById('cmpA'), a); la.qHigh = 0.9; la.maxW = 420;
+  var lb = new Lab(document.getElementById('cmpB'), b); lb.qHigh = 0.9; lb.maxW = 420;
+})();
+
+/* ---------- hero ---------- */
+(function () {
+  var h = baseState();
+  h.az = 150; h.el = 26; h.power = 2.0; h.size = 0.22; h.kelvin = 3100;
+  h.world = 0.12; h.worldH = 220; h.worldS = 0.6;
+  h.baseH = 20; h.baseS = 0.5; h.baseV = 0.85; h.rough = 0.22;
+  h.rim = 0.9; h.rimH = 205; h.rimS = 0.6; h.tex = 0; h.floorTint = 0.5;
+  var hero = new Lab(document.getElementById('heroCanvas'), h);
+  hero.maxW = 340; hero.qLow = 0.3; hero.qHigh = 0.55;
+  var running = false, target = 44, btn = document.getElementById('heroPlay');
+  function step() {
+    if (!running) return;
+    var d = target - hero.st.az;
+    if (d > 180) d -= 360; if (d < -180) d += 360;
+    if (Math.abs(d) < 2) { running = false; btn.textContent = 'Move the light'; hero.invalidate(false); return; }
+    hero.st.az = (hero.st.az + Math.sign(d) * 2.4 + 360) % 360;
+    hero.invalidate(true);
+    setTimeout(step, 45);
+  }
+  btn.addEventListener('click', function () {
+    if (running) { running = false; btn.textContent = 'Move the light'; return; }
+    hero.st.az = 150; target = 44; running = true; btn.textContent = 'Stop';
+    step();
+  });
+  if (!reduceMotion) { setTimeout(function () { running = true; btn.textContent = 'Stop'; step(); }, 900); }
+})();
+
+/* ---------- CHALLENGE ---------- */
+var CHALLENGES = [
+  { name: 'Overcast afternoon',
+    target: { az: 24, el: 68, power: 1.0, size: 0.92, kelvin: 6900, world: 0.4, rough: 0.62, metal: 0 },
+    fixed: { baseH: 30, baseS: 0.5, baseV: 0.82, tex: 0, bump: 0 } },
+  { name: 'Campfire at night',
+    target: { az: 350, el: 12, power: 2.0, size: 0.3, kelvin: 1900, world: 0.04, rough: 0.45, metal: 0 },
+    fixed: { baseH: 32, baseS: 0.45, baseV: 0.8, tex: 3, texScale: 8, bump: 0.5, worldH: 230, worldS: 0.4 } },
+  { name: 'Chrome in a showroom',
+    target: { az: 62, el: 46, power: 1.4, size: 0.55, kelvin: 6000, world: 0.5, rough: 0.08, metal: 1 },
+    fixed: { baseH: 40, baseS: 0.05, baseV: 0.95, tex: 0, bump: 0, worldH: 210, worldS: 0.2 } }
+];
+var CHAL_KEYS = ['az', 'el', 'power', 'size', 'kelvin', 'world', 'rough', 'metal'];
+var chalIdx = 0;
+var tgtState = baseState(), youState = baseState();
+var labTgt = new Lab(document.getElementById('cTgt'), tgtState);
+var labYou = new Lab(document.getElementById('cYou'), youState);
+labTgt.maxW = 380; labYou.maxW = 380;
+
+function loadChallenge(i) {
+  chalIdx = i;
+  var c = CHALLENGES[i], k;
+  var t = baseState(), y = baseState();
+  for (k in c.fixed) { t[k] = c.fixed[k]; y[k] = c.fixed[k]; }
+  for (k in c.target) { t[k] = c.target[k]; }
+  // start the student somewhere deliberately wrong
+  y.az = 180; y.el = 20; y.power = 1.2; y.size = 0.1; y.kelvin = 5200; y.world = 0.15; y.rough = 0.5; y.metal = 0;
+  labTgt.st = t; labYou.st = y;
+  makeSliders(document.getElementById('s5'), labYou, CHAL_KEYS);
+  labTgt.invalidate(false); labYou.invalidate(false);
+  document.getElementById('chalScore').textContent = '\u2014';
+  document.getElementById('chalBar').style.width = '0%';
+  document.getElementById('chalHints').innerHTML = '<li>Read the target, then drag. Check when you think it is close.</li>';
+  var kids = document.getElementById('chalPick').children;
+  for (var n = 0; n < kids.length; n++) kids[n].setAttribute('aria-pressed', n === i ? 'true' : 'false');
+}
+(function () {
+  var host = document.getElementById('chalPick');
+  CHALLENGES.forEach(function (c, i) {
+    var b = document.createElement('button');
+    b.className = 'btn btn-sm'; b.textContent = c.name;
+    b.addEventListener('click', function () { loadChallenge(i); });
+    host.appendChild(b);
+  });
+})();
+
+function angDiff(a, b) { var d = Math.abs(((a - b) % 360 + 540) % 360 - 180); return 180 - d; }
+document.getElementById('chalCheck').addEventListener('click', function () {
+  var t = labTgt.st, y = labYou.st, total = 0, misses = [];
+  CHAL_KEYS.forEach(function (k) {
+    var d = SLIDER_DEFS[k], range = d.max - d.min, err;
+    if (k === 'az') { err = angDiff(t.az, y.az) / 180; }
+    else { err = Math.abs(t[k] - y[k]) / range; }
+    var sc = clamp(1 - err / 0.22, 0, 1);
+    total += sc;
+    if (sc < 0.8) misses.push({ k: k, sc: sc, up: (k === 'az' ? null : t[k] > y[k]) });
+  });
+  var pct = Math.round(total / CHAL_KEYS.length * 100);
+  document.getElementById('chalScore').textContent = pct + '%';
+  document.getElementById('chalBar').style.width = pct + '%';
+  misses.sort(function (a, b) { return a.sc - b.sc; });
+  var HINT = {
+    az: 'Look at which side the shadow falls on, then swing the direction that way.',
+    el: 'Check the shadow length. Long shadow means a low light.',
+    power: 'Compare the brightest spot on the ball, not the background.',
+    size: 'Look at the shadow edge on the floor: fuzzy means a bigger light.',
+    kelvin: 'Is the lit side warmer or cooler than yours?',
+    world: 'Look into the darkest shadow. Pure black means almost no world light.',
+    rough: 'Find the highlight. Small and sharp means low roughness.',
+    metal: 'Is the ball reflecting the floor back at you? Then it is metal.'
+  };
+  var ul = document.getElementById('chalHints');
+  if (!misses.length) {
+    ul.innerHTML = '<li>Every setting is inside tolerance. That is a lighting artist move.</li>';
+  } else {
+    ul.innerHTML = misses.slice(0, 3).map(function (m) {
+      var dir = m.up === null ? '' : (m.up ? ' Yours is too low.' : ' Yours is too high.');
+      return '<li><strong>' + SLIDER_DEFS[m.k].label + ':</strong> ' + HINT[m.k] + dir + '</li>';
+    }).join('');
+  }
+});
+loadChallenge(0);
+
+/* ---------- QUIZ ---------- */
+var QUIZ = [
+  { q: 'Your render has knife-sharp shadow edges but you want them soft. Which setting do you change?',
+    o: ['Increase the light Power', 'Increase the light Size', 'Increase Roughness on the material', 'Increase World Strength'],
+    a: 1, why: 'Shadow softness comes from how big the light source is. A bigger source wraps around the object, so the shadow edge spreads out. Power only changes brightness.' },
+  { q: 'A red object is lit by a pure cyan light. What does the camera see?',
+    o: ['Bright red', 'Purple', 'Nearly black', 'White'],
+    a: 2, why: 'Surface colour is multiplied by light colour. Red is (1,0,0), cyan is (0,1,1), and the product is (0,0,0). There is no red light in the room for a red surface to bounce back.' },
+  { q: 'Which roughness value would you use for a wet road at night?',
+    o: ['0.05', '0.5', '0.85', '1.0'],
+    a: 0, why: 'Water fills in the microscopic pits, so reflections stay sharp. Low roughness gives you the mirror-like streaks of light you see on a wet road.' },
+  { q: 'What does a bump map actually change?',
+    o: ['The real geometry of the mesh', 'Only the direction the shading thinks the surface faces', 'The colour of the surface', 'The number of polygons rendered'],
+    a: 1, why: 'A bump map fakes the lighting by tilting the normals. The mesh stays perfectly flat, which is why the silhouette never changes — and why it is nearly free to render.' },
+  { q: 'A character is lit from directly below with a small hard light. What does this usually communicate?',
+    o: ['Wealth and luxury', 'Threat, or something not right', 'Calm and safety', 'Nothing, it is neutral'],
+    a: 1, why: 'Daylight and ceiling lights come from above, so your brain has almost no experience of faces lit from underneath. Horror has been using that gap for a hundred years.' },
+  { q: 'Your shadows are pure black and the render feels harsh. What is the quickest fix?',
+    o: ['Raise the key light Power', 'Raise World Strength, or add a dim fill light', 'Raise Metallic to 1', 'Increase the Scale on the Mapping node'],
+    a: 1, why: 'On Earth, light bounces off the sky, walls and floor into shadows, so real shadows are never fully black. World Strength or a fill light rebuilds that bounce.' }
+];
+(function () {
+  var host = document.getElementById('quizBox'), answered = 0, right = 0;
+  QUIZ.forEach(function (item, qi) {
+    var d = document.createElement('div'); d.className = 'q';
+    d.innerHTML = '<h4>' + (qi + 1) + '. ' + item.q + '</h4><div class="opts"></div><div class="fb"></div>';
+    var opts = d.querySelector('.opts'), fb = d.querySelector('.fb'), done = false;
+    item.o.forEach(function (text, oi) {
+      var b = document.createElement('button');
+      b.className = 'opt'; b.type = 'button'; b.textContent = text;
+      b.addEventListener('click', function () {
+        if (done) return;
+        done = true; answered++;
+        var ok = oi === item.a;
+        if (ok) right++;
+        b.classList.add(ok ? 'right' : 'wrong');
+        Array.prototype.forEach.call(opts.children, function (c, ci) {
+          c.disabled = true;
+          if (ci === item.a) c.classList.add('right');
+        });
+        fb.textContent = (ok ? 'Correct. ' : 'Not quite. ') + item.why;
+        fb.classList.add('show');
+        document.getElementById('quizScore').textContent =
+          'Answered ' + answered + ' of ' + QUIZ.length + ', correct so far: ' + right + '.';
+      });
+      opts.appendChild(b);
+    });
+    host.appendChild(d);
+  });
+})();
+
+})();
+
+</script>
+</body>
+</html>
