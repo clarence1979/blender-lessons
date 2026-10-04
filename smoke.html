@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab 17 — Smoke Simulation in Blender | Year 9 Digital Technologies</title>
+<style>
+/* ============================================================================
+   SEQTA-COMPATIBLE — Self-contained, zero external dependencies
+   Year 9 Digital Technologies — Lab 17: Smoke Simulation in Blender
+   Plenty Valley Christian College
+============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #07070b;
+  --bg-1: #0e0e15;
+  --bg-2: #15151f;
+  --bg-3: #1d1d2a;
+  --line: #2a2a3a;
+  --line-2: #383848;
+  --text: #ececf2;
+  --muted: #8b8b9b;
+  --dim: #5f5f6f;
+
+  /* Smoke palette — fire/heat tones */
+  --orange: #f5792a;
+  --orange-soft: #ff9b54;
+  --amber: #ffb347;
+  --ember: #ff5e3a;
+  --smoke-1: #d6d6dc;
+  --smoke-2: #8b8b9b;
+  --cyan: #4dd0e1;
+  --magenta: #ff4d8d;
+  --green: #7dd87a;
+  --yellow: #ffd23f;
+  --purple: #b388ff;
+
+  --grad-fire: linear-gradient(135deg, #ff5e3a 0%, #f5792a 50%, #ffb347 100%);
+  --grad-smoke: linear-gradient(180deg, rgba(245,121,42,0.0) 0%, rgba(214,214,220,0.6) 60%, rgba(214,214,220,0.0) 100%);
+  --shadow: 0 18px 50px rgba(0,0,0,0.55);
+  --shadow-glow: 0 0 40px rgba(245,121,42,0.25);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  font-size: 16px;
+  overflow-x: hidden;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(245,121,42,0.10), transparent 45%),
+    radial-gradient(ellipse at 80% 100%, rgba(255,94,58,0.06), transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(77,208,225,0.03), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Subtle grid texture */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none; z-index: 0;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- PROGRESS BAR ---------- */
+.progress-wrap {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(7,7,11,0.85);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0;
+}
+.progress-bar {
+  height: 3px;
+  background: var(--bg-3);
+  border-radius: 4px;
+  overflow: hidden;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--grad-fire);
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(245,121,42,0.6);
+}
+
+/* ---------- HERO ---------- */
+.hero {
+  position: relative;
+  padding: 80px 0 60px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+}
+.hero-canvas-wrap {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.65;
+}
+#heroCanvas { width: 100%; height: 100%; display: block; }
+.hero-inner { position: relative; z-index: 1; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--orange);
+  background: rgba(245,121,42,0.08);
+  border: 1px solid rgba(245,121,42,0.3);
+  padding: 6px 14px;
+  border-radius: 99px;
+  margin-bottom: 24px;
+}
+.eyebrow::before {
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: 0 0 12px var(--orange);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+h1.hero-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(2.4rem, 6vw, 4.6rem);
+  font-weight: 700;
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+}
+h1.hero-title .word {
+  display: inline-block;
+  background: var(--grad-fire);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-sub {
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+  color: var(--muted);
+  max-width: 680px;
+  margin-bottom: 30px;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+.badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 7px 14px;
+  border-radius: 999px;
+  color: var(--text);
+}
+.badge.hot { border-color: rgba(255,94,58,0.4); color: var(--ember); background: rgba(255,94,58,0.08); }
+.badge.cool { border-color: rgba(77,208,225,0.3); color: var(--cyan); background: rgba(77,208,225,0.06); }
+.badge.warn { border-color: rgba(255,210,63,0.3); color: var(--yellow); background: rgba(255,210,63,0.06); }
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  font-size: 13px;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.hero-meta span strong { color: var(--text); margin-right: 6px; }
+
+/* ---------- SECTIONS ---------- */
+section {
+  padding: 70px 0;
+  border-bottom: 1px solid var(--line);
+}
+.section-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+section h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  margin-bottom: 18px;
+}
+.lead {
+  font-size: 1.07rem;
+  color: var(--muted);
+  max-width: 780px;
+  margin-bottom: 28px;
+}
+.lead strong { color: var(--text); font-weight: 600; }
+
+/* ---------- POP CULTURE GRID ---------- */
+.pop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 32px;
+}
+.pop-card {
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 20px;
+  transition: transform .3s ease, border-color .3s ease, box-shadow .3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.pop-card::after {
+  content: "";
+  position: absolute; top: 0; right: 0;
+  width: 80px; height: 80px;
+  background: radial-gradient(circle at top right, rgba(245,121,42,0.15), transparent 70%);
+  pointer-events: none;
+}
+.pop-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--orange);
+  box-shadow: var(--shadow-glow);
+}
+.pop-card .icon { font-size: 1.8rem; display: block; margin-bottom: 10px; }
+.pop-card strong { display: block; color: var(--text); margin-bottom: 6px; font-size: 1rem; }
+.pop-card span:not(.icon) { color: var(--muted); font-size: 0.92rem; line-height: 1.55; display: block; }
+
+/* ---------- PHYSICS EXPLAINER ---------- */
+.physics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  align-items: center;
+  margin-top: 32px;
+}
+.voxel-wrap {
+  background: linear-gradient(180deg, var(--bg-1), var(--bg));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px;
+  aspect-ratio: 1/1;
+  position: relative;
+}
+#voxelCanvas { width: 100%; height: 100%; display: block; }
+.recipe-list h3 { font-family: 'Space Grotesk', sans-serif; font-size: 1.2rem; margin-bottom: 16px; }
+.key-row {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 0.95rem;
+}
+.key-row:last-child { border-bottom: none; }
+.dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--orange);
+  margin-top: 6px;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(245,121,42,0.5);
+}
+.dot.cyan { background: var(--cyan); box-shadow: 0 0 8px rgba(77,208,225,0.5); }
+.dot.magenta { background: var(--magenta); box-shadow: 0 0 8px rgba(255,77,141,0.5); }
+.dot.yellow { background: var(--yellow); box-shadow: 0 0 8px rgba(255,210,63,0.5); }
+.key-row strong { color: var(--text); }
+.key-row span:not(.dot) { color: var(--muted); }
+.key-row span:not(.dot) strong { font-weight: 600; }
+
+@media (max-width: 768px) {
+  .physics-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- DOMAIN/FLOW VISUAL ---------- */
+.df-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 30px;
+}
+.df-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+  text-align: center;
+  position: relative;
+}
+.df-card .df-icon {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 70px; height: 70px;
+  border-radius: 14px;
+  margin-bottom: 14px;
+  font-size: 1.8rem;
+}
+.df-card.domain .df-icon {
+  background: rgba(77,208,225,0.1);
+  border: 2px dashed var(--cyan);
+  color: var(--cyan);
+}
+.df-card.flow .df-icon {
+  background: rgba(245,121,42,0.1);
+  border: 2px solid var(--orange);
+  color: var(--orange);
+}
+.df-card h4 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+}
+.df-card p { color: var(--muted); font-size: 0.92rem; }
+.df-tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  margin-top: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.df-card.domain .df-tag { background: rgba(77,208,225,0.12); color: var(--cyan); }
+.df-card.flow .df-tag { background: rgba(245,121,42,0.15); color: var(--orange); }
+
+@media (max-width: 600px) {
+  .df-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- STEP BLOCKS ---------- */
+.steps {
+  margin-top: 30px;
+  position: relative;
+  padding-left: 36px;
+  border-left: 2px solid var(--line);
+}
+.step {
+  margin-bottom: 26px;
+  position: relative;
+  padding: 18px 22px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  transition: border-color .25s ease, transform .25s ease;
+}
+.step:hover { border-color: rgba(245,121,42,0.4); }
+.step::before {
+  counter-increment: stepcount;
+  content: counter(stepcount);
+  position: absolute;
+  left: -49px;
+  top: 14px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid var(--orange);
+  color: var(--orange);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+.steps { counter-reset: stepcount; }
+.step h4 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.step p {
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+.step p strong { color: var(--text); }
+.step.checkpoint {
+  background: linear-gradient(135deg, rgba(245,121,42,0.10), rgba(255,94,58,0.06));
+  border-color: rgba(245,121,42,0.4);
+}
+.step.checkpoint::before {
+  background: var(--orange);
+  color: var(--bg);
+  content: "✓";
+  font-size: 16px;
+}
+.step.warn {
+  background: linear-gradient(135deg, rgba(255,210,63,0.08), rgba(255,210,63,0.03));
+  border-color: rgba(255,210,63,0.3);
+}
+.step.warn::before {
+  background: var(--yellow);
+  color: var(--bg);
+  content: "!";
+  font-size: 16px;
+  border-color: var(--yellow);
+}
+
+/* ---------- BLENDER KEY ---------- */
+.blender-key {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82em;
+  font-weight: 600;
+  background: var(--bg-3);
+  color: var(--orange);
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  margin: 0 2px;
+  vertical-align: middle;
+}
+
+/* ---------- INTERACTIVE PARAMETER LAB ---------- */
+.param-lab {
+  margin-top: 32px;
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+.param-lab h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.3rem;
+  margin-bottom: 6px;
+}
+.param-lab > p { color: var(--muted); font-size: 0.95rem; margin-bottom: 22px; }
+
+.param-display {
+  background: #000;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  aspect-ratio: 16/9;
+  margin-bottom: 18px;
+  position: relative;
+  overflow: hidden;
+}
+#paramCanvas { width: 100%; height: 100%; display: block; }
+
+.param-overlay {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  background: rgba(0,0,0,0.5);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+.ctrl {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.ctrl label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ctrl label .val {
+  color: var(--orange);
+  font-weight: 600;
+  background: rgba(245,121,42,0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.ctrl input[type=range] {
+  width: 100%;
+  -webkit-appearance: none; appearance: none;
+  background: var(--bg-3);
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+}
+.ctrl input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--orange);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(245,121,42,0.5);
+}
+.ctrl input[type=range]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--orange);
+  border: 2px solid var(--bg);
+  cursor: pointer;
+}
+.ctrl .desc {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--dim);
+  line-height: 1.4;
+}
+
+.preset-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+.preset-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  color: var(--text);
+  cursor: pointer;
+  transition: all .2s;
+}
+.preset-btn:hover { background: var(--orange); color: var(--bg); border-color: var(--orange); }
+
+/* ---------- SHAPE COMPARISON ---------- */
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.shape-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+  transition: all .25s;
+  cursor: pointer;
+}
+.shape-card:hover {
+  border-color: var(--orange);
+  transform: translateY(-3px);
+}
+.shape-card .shape-svg {
+  height: 90px;
+  margin-bottom: 12px;
+  display: flex; align-items: center; justify-content: center;
+}
+.shape-card h4 { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; margin-bottom: 4px; }
+.shape-card p { font-size: 0.85rem; color: var(--muted); }
+
+/* ---------- RECAP GRID ---------- */
+.recap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.recap-card {
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  position: relative;
+}
+.recap-card h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--orange);
+  margin-bottom: 8px;
+}
+.recap-card p { font-size: 0.9rem; color: var(--text); line-height: 1.55; }
+
+/* ---------- QUIZ ---------- */
+.quiz {
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 32px;
+  margin-top: 28px;
+  box-shadow: var(--shadow);
+}
+.q-block { margin-bottom: 28px; }
+.q-block:last-child { margin-bottom: 0; }
+.q-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--orange);
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.q-text {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+  color: var(--text);
+}
+.q-options { display: flex; flex-direction: column; gap: 8px; }
+.q-opt {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: all .2s;
+  font-family: inherit;
+  color: var(--text);
+  text-align: left;
+  font-weight: 400;
+}
+.q-opt:hover:not(:disabled) { border-color: var(--orange); transform: translateX(3px); }
+.q-opt.correct { background: rgba(125,216,122,0.12); border-color: var(--green); color: var(--green); }
+.q-opt.wrong { background: rgba(255,77,141,0.10); border-color: var(--magenta); color: var(--magenta); }
+.q-feedback {
+  margin-top: 10px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  border-radius: 8px;
+  display: none;
+  line-height: 1.5;
+}
+.q-feedback.show { display: block; }
+.q-feedback.good { background: rgba(125,216,122,0.10); color: var(--green); border: 1px solid rgba(125,216,122,0.3); }
+.q-feedback.bad { background: rgba(255,77,141,0.10); color: var(--magenta); border: 1px solid rgba(255,77,141,0.3); }
+
+.score-display {
+  text-align: center;
+  padding: 22px;
+  margin-top: 24px;
+  border-radius: 12px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: none;
+}
+.score-display.show { display: block; }
+
+/* ---------- SUBMISSION CHECKLIST ---------- */
+.submit-block {
+  margin-top: 28px;
+  background: linear-gradient(135deg, rgba(245,121,42,0.07), rgba(255,94,58,0.04));
+  border: 1px solid rgba(245,121,42,0.3);
+  border-radius: 14px;
+  padding: 26px;
+}
+.submit-block h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.3rem;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.checklist { list-style: none; }
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+  cursor: pointer;
+  user-select: none;
+  transition: opacity .2s;
+}
+.checklist li:last-child { border-bottom: none; }
+.checklist input[type=checkbox] {
+  appearance: none;
+  width: 20px; height: 20px;
+  border: 2px solid var(--orange);
+  border-radius: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 3px;
+  position: relative;
+  background: transparent;
+}
+.checklist input[type=checkbox]:checked {
+  background: var(--orange);
+}
+.checklist input[type=checkbox]:checked::after {
+  content: "✓";
+  color: var(--bg);
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: 700;
+}
+.checklist li.done { opacity: 0.55; }
+.checklist li.done span { text-decoration: line-through; }
+.checklist span { font-size: 0.95rem; color: var(--text); }
+
+/* ---------- FOOTER ---------- */
+footer {
+  padding: 40px 0 30px;
+  text-align: center;
+  color: var(--dim);
+  font-size: 0.85rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+footer .divider {
+  width: 60px;
+  height: 1px;
+  background: var(--line);
+  margin: 0 auto 16px;
+}
+footer strong { color: var(--orange); }
+
+/* ---------- SCROLL REVEAL ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity .7s ease, transform .7s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+
+<body>
+
+<!-- ===================== PROGRESS BAR ===================== -->
+<div class="progress-wrap">
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+</div>
+
+<!-- ===================== HERO ===================== -->
+<header class="hero">
+  <div class="hero-canvas-wrap"><canvas id="heroCanvas"></canvas></div>
+  <div class="container hero-inner">
+    <div class="eyebrow">Lab 17 · Term 2 · Year 9 Digital Technologies</div>
+    <h1 class="hero-title">
+      Set the world<br>on (digital) <span class="word">smoke.</span>
+    </h1>
+    <p class="hero-sub">
+      Volcanoes erupting in Marvel films. Dragons breathing in <em>House of the Dragon</em>.
+      Smoke grenades in Call of Duty. Steam curling off ramen in a Studio Ghibli scene.
+      That's all <strong>volumetric fluid simulation</strong> — and today you build one in Blender.
+    </p>
+
+    <div class="badge-row">
+      <span class="badge">⚙️ Blender 4.x</span>
+      <span class="badge hot">🔥 Mantaflow Engine</span>
+      <span class="badge cool">💨 Domain &amp; Flow</span>
+      <span class="badge warn">🌪 Vorticity</span>
+      <span class="badge">📦 Voxel Grid</span>
+    </div>
+
+    <div class="hero-meta">
+      <span><strong>DURATION:</strong> 1–2 lessons</span>
+      <span><strong>OUTPUT:</strong> Lab 17A.blend &amp; 17B.blend</span>
+      <span><strong>DIFFICULTY:</strong> ★★★☆☆</span>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== WHY IT MATTERS ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 01 — Why should you care?</div>
+  <h2>You've seen this 1000 times.</h2>
+  <p class="lead">
+    Smoke is one of those things you don't notice until it's missing. Take it out of any action
+    scene, anime fight, or rocket launch and the whole thing dies on screen. Studios spend
+    <strong>days</strong> baking the perfect plume. By the end of this lesson, you'll do it in
+    one period.
+  </p>
+
+  <div class="pop-grid">
+    <div class="pop-card">
+      <span class="icon">🐲</span>
+      <strong>Dragon's breath</strong>
+      <span>Every fire-breathing scene in <em>House of the Dragon</em> starts as a smoke + fire simulation.</span>
+    </div>
+    <div class="pop-card">
+      <span class="icon">🚀</span>
+      <strong>Rocket launches</strong>
+      <span>SpaceX VFX teams use the same Mantaflow physics for pre-launch concept art.</span>
+    </div>
+    <div class="pop-card">
+      <span class="icon">🥷</span>
+      <strong>Anime smoke trails</strong>
+      <span><em>Demon Slayer</em>, <em>Naruto</em>, <em>Jujutsu Kaisen</em> — fight scene smoke is hand-keyed AND simulated.</span>
+    </div>
+    <div class="pop-card">
+      <span class="icon">🎮</span>
+      <strong>Game smoke grenades</strong>
+      <span>Fortnite, COD, CS:GO — every smoke effect is real-time volumetric fluid.</span>
+    </div>
+    <div class="pop-card">
+      <span class="icon">🌋</span>
+      <strong>Volcanoes &amp; explosions</strong>
+      <span>The pyroclastic clouds in disaster films? Sims that take days to bake.</span>
+    </div>
+    <div class="pop-card">
+      <span class="icon">🍜</span>
+      <strong>Ghibli steam</strong>
+      <span>Even the warm steam off Studio Ghibli ramen is hand-tuned smoke simulation.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== SCIENCE ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 02 — The science behind it</div>
+  <h2>Smoke is just a 3D grid of cells.</h2>
+  <p class="lead">
+    Real smoke is trillions of microscopic particles drifting on air currents. Way too many to
+    simulate. So we cheat. Blender chops 3D space into a <strong>voxel grid</strong> — like a
+    Minecraft world made of invisible cubes — and tracks <em>density</em>, <em>temperature</em>,
+    and <em>velocity</em> in each cell. Every frame, those values flow into neighbouring cells
+    based on physics rules. That's smoke.
+  </p>
+
+  <div class="physics-grid">
+    <div class="voxel-wrap"><canvas id="voxelCanvas"></canvas></div>
+    <div class="recipe-list">
+      <h3>The four ingredients ↤</h3>
+      <div class="key-row">
+        <span class="dot"></span>
+        <span><strong>Density</strong> — how thick the smoke is in each cell. Black squares = packed full of smoke.</span>
+      </div>
+      <div class="key-row">
+        <span class="dot magenta"></span>
+        <span><strong>Heat</strong> — temperature controls <em>buoyancy</em>. Hot cells rise. Cold cells stay put or sink.</span>
+      </div>
+      <div class="key-row">
+        <span class="dot cyan"></span>
+        <span><strong>Velocity</strong> — direction and speed of motion in each cell. The arrows that push smoke around.</span>
+      </div>
+      <div class="key-row">
+        <span class="dot yellow"></span>
+        <span><strong>Vorticity</strong> — how <em>swirly</em> the motion is. Real smoke curls. Without this, your smoke looks like a boring straight line.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== DOMAIN/FLOW ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 03 — The two objects you need</div>
+  <h2>Domain. Flow. That's it.</h2>
+  <p class="lead">
+    Every smoke simulation in Blender needs exactly two objects with physics turned on. Get
+    these wrong and your scene is just two cubes sitting there judging you.
+  </p>
+
+  <div class="df-grid">
+    <div class="df-card domain">
+      <div class="df-icon">📦</div>
+      <h4>The Domain</h4>
+      <p>The <strong>invisible box</strong> where physics happens. Smoke can only exist <em>inside</em> this box. Make it bigger = more space for smoke to spread.</p>
+      <div class="df-tag">Type: Domain · Gas</div>
+    </div>
+    <div class="df-card flow">
+      <div class="df-icon">💨</div>
+      <h4>The Flow</h4>
+      <p>The <strong>source</strong>. The object the smoke pours out of. This is what you see in the final render — its <em>shape</em> influences the smoke pattern.</p>
+      <div class="df-tag">Type: Flow · Gas</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LAB 17A ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 04 — Lab 17A · The basic plume</div>
+  <h2>Build your first smoke simulation.</h2>
+  <p class="lead">
+    Time to make the default cube finally do something useful.
+    Follow each step. <strong>Don't skip the bake.</strong>
+  </p>
+
+  <div class="steps">
+
+    <div class="step">
+      <h4>Duplicate the default cube</h4>
+      <p>Open a new Blender file. Click the cube. Press <span class="blender-key">Shift</span>+<span class="blender-key">D</span> to duplicate it. Right-click to drop the copy at its current position. You should now see <em>two cubes</em> overlapping.</p>
+    </div>
+
+    <div class="step">
+      <h4>Rename one cube to "Domain"</h4>
+      <p>In the Outliner (top-right), double-click one cube and rename it <strong>Domain</strong>. This is the box that will hold all the smoke physics.</p>
+    </div>
+
+    <div class="step">
+      <h4>Make it the Domain (Gas)</h4>
+      <p>With the Domain selected, open <strong>Physics Properties</strong> (the bouncing-ball icon 🔵 on the right toolbar). Click <strong>Fluid</strong>. Set <em>Type</em> to <strong>Domain</strong> and <em>Domain Type</em> to <strong>Gas</strong>.</p>
+    </div>
+
+    <div class="step">
+      <h4>Set up the Flow object</h4>
+      <p>Click the <em>other</em> cube. Open <strong>Physics Properties</strong> → Click <strong>Fluid</strong>. Set <em>Type</em> to <strong>Flow</strong> and <em>Flow Type</em> to <strong>Smoke</strong>. This cube is now a smoke emitter.</p>
+    </div>
+
+    <div class="step">
+      <h4>Resize the Domain so it covers everything</h4>
+      <p>Select the Domain, press <span class="blender-key">G</span> to grab and lift it up. Press <span class="blender-key">S</span> to scale it bigger — it needs to <strong>completely contain</strong> the Flow cube AND have room above for smoke to rise. Think of it like a fish tank: the smoke can't escape outside the glass.</p>
+    </div>
+
+    <div class="step checkpoint">
+      <h4>🚦 Checkpoint — first test!</h4>
+      <p>Press <span class="blender-key">Spacebar</span> (or the Play button at the bottom). You should see grey smoke rising from the inner cube. If you see nothing, your Domain is probably too small or doesn't enclose the Flow cube. Fix that and try again.</p>
+    </div>
+
+    <div class="step">
+      <h4>Bump up the resolution</h4>
+      <p>Select the Domain. In Physics Properties, find <strong>Resolution Divisions</strong>. Default is 32 (blocky and pixelated). Set it to <strong>54</strong> for noticeably smoother smoke. Press play again. <em>Look at that detail.</em></p>
+    </div>
+
+    <div class="step">
+      <h4>Add initial velocity (give the smoke a push)</h4>
+      <p>Click the <em>inner cube</em> (the Flow object). In its Fluid settings, find <strong>Initial Velocity</strong>. Set the <strong>X-axis</strong> to <strong>5 m/s</strong>. Press play — the smoke now blasts sideways instead of just rising. Like a side-on rocket.</p>
+    </div>
+
+    <div class="step warn">
+      <h4>BAKE the simulation</h4>
+      <p>Playing in real-time recalculates every frame. <strong>Baking</strong> saves the whole simulation to disk so playback is smooth and you can render it. Select the Domain → Physics Properties → scroll to <strong>Cache</strong> → click <strong>Bake All</strong>. Wait. Don't touch anything. ☕</p>
+    </div>
+
+    <div class="step checkpoint">
+      <h4>📝 Mini-challenge before submitting</h4>
+      <p>Replace the Flow cube with a <em>different shape</em> — maybe a cone, sphere, or monkey head (Suzanne). Bake again. <strong>Question to think about:</strong> does the smoke take the shape of the object? What changes? What stays the same?</p>
+    </div>
+
+    <div class="step">
+      <h4>Save and submit</h4>
+      <p>Save your file as <strong>Lab 17A.blend</strong> (File → Save As). Upload to SEQTA before moving on to Lab 17B.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===================== INTERACTIVE PARAMETER LAB ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 05 — Interactive · Tweak the parameters</div>
+  <h2>Drag the sliders. Watch the smoke change.</h2>
+  <p class="lead">
+    Before you set these values for real in Blender, see what each one actually <em>does</em>.
+    Drag the sliders below to change resolution, heat, vorticity, and velocity in real time.
+    <strong>This is the same physics</strong> — just simplified for your browser.
+  </p>
+
+  <div class="param-lab">
+    <div class="param-display">
+      <canvas id="paramCanvas"></canvas>
+      <div class="param-overlay" id="paramReadout">resolution: 54 · heat: 1.0 · vorticity: 2.0 · velocity: 0</div>
+    </div>
+
+    <div class="controls">
+      <div class="ctrl">
+        <label>Resolution <span class="val" id="resVal">54</span></label>
+        <input type="range" id="resSlider" min="20" max="120" value="54">
+        <div class="desc">Voxel grid detail. Higher = smoother but slower.</div>
+      </div>
+      <div class="ctrl">
+        <label>Heat <span class="val" id="heatVal">1.0</span></label>
+        <input type="range" id="heatSlider" min="0" max="20" value="10">
+        <div class="desc">How fast smoke rises. Zero = smoke just hangs there.</div>
+      </div>
+      <div class="ctrl">
+        <label>Vorticity <span class="val" id="vortVal">2.0</span></label>
+        <input type="range" id="vortSlider" min="0" max="50" value="20">
+        <div class="desc">How swirly. Low = boring straight line. High = chaos.</div>
+      </div>
+      <div class="ctrl">
+        <label>X-Velocity <span class="val" id="velVal">0</span></label>
+        <input type="range" id="velSlider" min="-10" max="10" value="0">
+        <div class="desc">Initial sideways push. Like wind from one side.</div>
+      </div>
+    </div>
+
+    <div class="preset-row">
+      <button class="preset-btn" data-preset="default">Default</button>
+      <button class="preset-btn" data-preset="lab17a">Lab 17A (rocket)</button>
+      <button class="preset-btn" data-preset="lab17b">Lab 17B (slow swirl)</button>
+      <button class="preset-btn" data-preset="campfire">Campfire</button>
+      <button class="preset-btn" data-preset="explosion">Explosion</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== LAB 17B ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 06 — Lab 17B · The artistic plume</div>
+  <h2>Now make it gorgeous.</h2>
+  <p class="lead">
+    Same setup, different vibe. We're swapping the Flow object for something curvier
+    and dialling in the parameters for a slow, swirling, atmospheric look — the kind of
+    smoke you'd see in a moody film scene.
+  </p>
+
+  <p style="margin-top: 12px; color: var(--muted); font-size: 0.95rem;">
+    <strong>Why does shape matter?</strong> The Flow object's geometry determines
+    where smoke gets injected into the Domain. A torus has a hole — smoke pours through it.
+  </p>
+
+  <div class="shape-grid">
+    <div class="shape-card">
+      <div class="shape-svg">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <rect x="15" y="15" width="50" height="50" fill="none" stroke="#f5792a" stroke-width="2"/>
+          <rect x="15" y="15" width="50" height="50" fill="rgba(245,121,42,0.1)"/>
+        </svg>
+      </div>
+      <h4>Cube</h4>
+      <p>Smoke = column. Boring but reliable.</p>
+    </div>
+    <div class="shape-card">
+      <div class="shape-svg">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <ellipse cx="40" cy="40" rx="28" ry="14" fill="rgba(245,121,42,0.15)" stroke="#f5792a" stroke-width="2"/>
+          <ellipse cx="40" cy="40" rx="10" ry="5" fill="#0e0e15" stroke="#f5792a" stroke-width="2"/>
+        </svg>
+      </div>
+      <h4>Torus 🍩</h4>
+      <p>Smoke = ring/donut shape. Use this!</p>
+    </div>
+    <div class="shape-card">
+      <div class="shape-svg">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <circle cx="40" cy="40" r="22" fill="rgba(245,121,42,0.15)" stroke="#f5792a" stroke-width="2"/>
+        </svg>
+      </div>
+      <h4>Sphere</h4>
+      <p>Smoke = round plume. Soft &amp; volcanic.</p>
+    </div>
+    <div class="shape-card">
+      <div class="shape-svg">
+        <svg width="80" height="80" viewBox="0 0 80 80">
+          <polygon points="40,15 65,60 15,60" fill="rgba(245,121,42,0.15)" stroke="#f5792a" stroke-width="2"/>
+        </svg>
+      </div>
+      <h4>Cone</h4>
+      <p>Smoke = tapered plume. Rocket vibes.</p>
+    </div>
+  </div>
+
+  <div class="steps" style="margin-top: 36px;">
+
+    <div class="step">
+      <h4>Replace the Flow cube with a Torus</h4>
+      <p>Select the inner cube and delete it (<span class="blender-key">X</span>). Add a new Torus: <strong>Add → Mesh → Torus</strong>. With the Torus selected, repeat the Flow setup: <em>Physics Properties → Fluid → Type: Flow → Flow Type: Smoke</em>. Position it inside the Domain.</p>
+    </div>
+
+    <div class="step">
+      <h4>First test</h4>
+      <p>Press play. Notice the smoke now <strong>matches the donut shape</strong> as it rises — there's a hole through the centre and the plume curves outward instead of going straight up like the cube did.</p>
+    </div>
+
+    <div class="step">
+      <h4>Drop the heat to zero</h4>
+      <p>Select the <strong>Domain</strong>. In Fluid settings, find <strong>Heat</strong> (under the Smoke section) and set it to <strong>0</strong>. The smoke now rises much more <em>slowly and smoothly</em> — no aggressive heat-driven buoyancy.</p>
+    </div>
+
+    <div class="step">
+      <h4>Crank the vorticity to 0.1</h4>
+      <p>Still in the Domain, find <strong>Vorticity</strong>. Set it to <strong>0.1</strong>. This adds beautiful little curls and swirls to the smoke — like real cigarette smoke or steam off coffee. <em>Detail without chaos.</em></p>
+    </div>
+
+    <div class="step">
+      <h4>Switch Domain Type to "All"</h4>
+      <p>In the Domain settings, change <em>Type</em> from "Gas" to <strong>All</strong>. This means the simulation tracks both smoke <em>and</em> fire data (even though we're not using fire). Set <strong>Resolution Divisions to 150</strong>. Yes, 150. This will be slow. That's the point.</p>
+    </div>
+
+    <div class="step warn">
+      <h4>⚠️ Heads up: this will take time</h4>
+      <p>Resolution 150 means the voxel grid is <em>much</em> denser. The bake might take 5–15 minutes depending on your PC. Don't quit Blender. Don't switch users. Don't slam the laptop shut. Let it cook. 🍳</p>
+    </div>
+
+    <div class="step">
+      <h4>Set the End Frame to 100</h4>
+      <p>Bottom of the screen, find the <strong>End Frame</strong> field (probably says 250). Change it to <strong>100</strong>. This shortens the simulation to 100 frames so the bake finishes faster.</p>
+    </div>
+
+    <div class="step">
+      <h4>Bake (optional but recommended)</h4>
+      <p>Domain → Physics Properties → Cache → <strong>Bake All</strong>. While it bakes, sketch out your next scene idea, or stretch.</p>
+    </div>
+
+    <div class="step checkpoint">
+      <h4>🎬 Save and submit</h4>
+      <p>Save as <strong>Lab 17B.blend</strong> and upload to SEQTA. Bonus marks for an interesting render with lighting (F12 to render).</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ===================== KEY TERMS RECAP ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 07 — The 6 words that matter</div>
+  <h2>Memorise these. Quiz uses them all.</h2>
+
+  <div class="recap-grid">
+    <div class="recap-card">
+      <h4>Domain</h4>
+      <p>The invisible bounding box where the physics simulation runs. Smoke can't exist outside it.</p>
+    </div>
+    <div class="recap-card">
+      <h4>Flow</h4>
+      <p>The object that emits smoke. Its shape influences the smoke's appearance.</p>
+    </div>
+    <div class="recap-card">
+      <h4>Resolution</h4>
+      <p>The voxel grid density. Higher = more detail = slower to compute.</p>
+    </div>
+    <div class="recap-card">
+      <h4>Vorticity</h4>
+      <p>How swirly the smoke is. Real smoke is never a straight line.</p>
+    </div>
+    <div class="recap-card">
+      <h4>Heat</h4>
+      <p>Temperature in cells. Drives buoyancy — hot smoke rises faster.</p>
+    </div>
+    <div class="recap-card">
+      <h4>Bake</h4>
+      <p>Pre-calculate the entire simulation and save it to disk. Required for smooth playback &amp; rendering.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== QUIZ ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 08 — Check yourself</div>
+  <h2>5 questions. No pressure.</h2>
+  <p class="lead">Tap an answer to lock it in. Instant feedback. You can re-take if you bomb it.</p>
+
+  <div class="quiz" id="quiz"></div>
+
+  <div class="score-display" id="scoreDisplay"></div>
+</section>
+
+<!-- ===================== SUBMISSION ===================== -->
+<section class="container">
+  <div class="section-tag">▎ 09 — Submission checklist</div>
+  <h2>Tick when done.</h2>
+
+  <div class="submit-block">
+    <h3>📤 Upload to SEQTA</h3>
+    <ul class="checklist" id="checklist">
+      <li><input type="checkbox"> <span>Lab 17A: Domain + Flow setup with cube as emitter</span></li>
+      <li><input type="checkbox"> <span>Lab 17A: Resolution set to 54, X-velocity = 5 m/s, baked</span></li>
+      <li><input type="checkbox"> <span>Lab 17A: Tried a different Flow shape (cone/sphere/Suzanne)</span></li>
+      <li><input type="checkbox"> <span>Lab 17A.blend uploaded to SEQTA</span></li>
+      <li><input type="checkbox"> <span>Lab 17B: Flow swapped to Torus</span></li>
+      <li><input type="checkbox"> <span>Lab 17B: Heat = 0, Vorticity = 0.1, Resolution = 150</span></li>
+      <li><input type="checkbox"> <span>Lab 17B: End frame set to 100, baked</span></li>
+      <li><input type="checkbox"> <span>Lab 17B.blend uploaded to SEQTA</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="container">
+    <div class="divider"></div>
+    Plenty Valley Christian College · Year 9 Digital Technologies<br>
+    Lab 17 — Smoke Simulation · <strong>Term 2</strong><br>
+    Blender 4.x · Physics: Mantaflow Engine
+  </div>
+</footer>
+
+<script>
+/* ============================================================================
+   ANIMATIONS — Hero smoke + voxel grid + parameter playground
+============================================================================ */
+
+// ---------- HERO SMOKE BACKGROUND ----------
+(function heroSmoke() {
+  const c = document.getElementById('heroCanvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  let W, H;
+  function resize() {
+    W = c.width = c.parentElement.offsetWidth;
+    H = c.height = c.parentElement.offsetHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const particles = [];
+  const COUNT = 60;
+  for (let i = 0; i < COUNT; i++) {
+    particles.push({
+      x: W * 0.15 + (Math.random() - 0.5) * 60,
+      y: H + 20,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: -0.4 - Math.random() * 0.6,
+      life: Math.random() * 100,
+      maxLife: 100 + Math.random() * 80,
+      size: 30 + Math.random() * 50,
+      hue: 20 + Math.random() * 25
+    });
+  }
+
+  function tick() {
+    ctx.fillStyle = 'rgba(7, 7, 11, 0.05)';
+    ctx.fillRect(0, 0, W, H);
+
+    particles.forEach(p => {
+      p.life++;
+      p.x += p.vx + Math.sin(p.life * 0.02) * 0.5;
+      p.y += p.vy;
+      p.vy *= 0.995;
+
+      const t = p.life / p.maxLife;
+      const alpha = Math.max(0, (1 - t) * 0.18);
+
+      const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * (1 + t));
+      grd.addColorStop(0, `hsla(${p.hue}, 90%, 55%, ${alpha})`);
+      grd.addColorStop(0.5, `hsla(${p.hue + 10}, 60%, 45%, ${alpha * 0.5})`);
+      grd.addColorStop(1, 'hsla(220, 20%, 30%, 0)');
+
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * (1 + t), 0, Math.PI * 2);
+      ctx.fill();
+
+      if (p.life > p.maxLife || p.y < -30) {
+        p.x = W * (0.1 + Math.random() * 0.15);
+        p.y = H + 20;
+        p.vx = (Math.random() - 0.5) * 0.3;
+        p.vy = -0.4 - Math.random() * 0.6;
+        p.life = 0;
+        p.maxLife = 100 + Math.random() * 80;
+        p.size = 30 + Math.random() * 50;
+      }
+    });
+
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ---------- VOXEL GRID VISUAL ----------
+(function voxelGrid() {
+  const c = document.getElementById('voxelCanvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  let W, H;
+  function resize() {
+    const r = c.parentElement.getBoundingClientRect();
+    W = c.width = r.width - 44;
+    H = c.height = r.height - 44;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const COLS = 16, ROWS = 16;
+  let grid = [];
+  function reset() {
+    grid = [];
+    for (let i = 0; i < ROWS; i++) {
+      grid[i] = [];
+      for (let j = 0; j < COLS; j++) {
+        grid[i][j] = { d: 0, t: 0 };
+      }
+    }
+  }
+  reset();
+
+  let frame = 0;
+  function tick() {
+    frame++;
+
+    // Inject smoke at bottom-center
+    const cx = Math.floor(COLS / 2);
+    const cy = ROWS - 2;
+    if (frame % 2 === 0) {
+      grid[cy][cx].d = Math.min(1, grid[cy][cx].d + 0.4);
+      grid[cy][cx].t = 1;
+      if (cx > 0) grid[cy][cx-1].d = Math.min(1, grid[cy][cx-1].d + 0.2);
+      if (cx < COLS-1) grid[cy][cx+1].d = Math.min(1, grid[cy][cx+1].d + 0.2);
+    }
+
+    // Diffuse upward + cool down
+    const next = JSON.parse(JSON.stringify(grid));
+    for (let i = 0; i < ROWS; i++) {
+      for (let j = 0; j < COLS; j++) {
+        const cell = grid[i][j];
+        if (cell.d > 0.01 && i > 0) {
+          // Move up with slight horizontal drift
+          const drift = Math.floor(Math.sin(frame * 0.03 + i * 0.4) * 1.5);
+          const targetX = Math.max(0, Math.min(COLS-1, j + drift));
+          next[i-1][targetX].d = Math.min(1, (next[i-1][targetX].d || 0) + cell.d * 0.5);
+          next[i-1][targetX].t = (next[i-1][targetX].t || 0) + cell.t * 0.5;
+          next[i][j].d = cell.d * 0.45;
+          next[i][j].t = cell.t * 0.6;
+        }
+      }
+    }
+    for (let i = 0; i < ROWS; i++) {
+      for (let j = 0; j < COLS; j++) {
+        grid[i][j] = next[i][j];
+        grid[i][j].t *= 0.97; // cool
+      }
+    }
+
+    // Render
+    ctx.clearRect(0, 0, W, H);
+    const cellW = W / COLS;
+    const cellH = H / ROWS;
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= COLS; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * cellW, 0);
+      ctx.lineTo(i * cellW, H);
+      ctx.stroke();
+    }
+    for (let i = 0; i <= ROWS; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, i * cellH);
+      ctx.lineTo(W, i * cellH);
+      ctx.stroke();
+    }
+
+    // Cells
+    for (let i = 0; i < ROWS; i++) {
+      for (let j = 0; j < COLS; j++) {
+        const cell = grid[i][j];
+        if (cell.d > 0.02) {
+          // Heat tint
+          const heat = cell.t;
+          const r = 245 - (1 - heat) * 100;
+          const g = 121 - (1 - heat) * 70;
+          const b = 42 + (1 - heat) * 100;
+          ctx.fillStyle = `rgba(${r},${g},${b},${cell.d * 0.85})`;
+          ctx.fillRect(j * cellW + 1, i * cellH + 1, cellW - 2, cellH - 2);
+        }
+      }
+    }
+
+    // Highlight injection cell border
+    ctx.strokeStyle = '#ff5e3a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(cx * cellW, cy * cellH, cellW, cellH);
+
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+// ---------- PARAMETER PLAYGROUND ----------
+(function paramPlayground() {
+  const c = document.getElementById('paramCanvas');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  let W, H;
+  function resize() {
+    const r = c.parentElement.getBoundingClientRect();
+    W = c.width = r.width;
+    H = c.height = r.height;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const params = {
+    res: 54,
+    heat: 1.0,
+    vort: 2.0,
+    vel: 0
+  };
+
+  const sliders = {
+    res: document.getElementById('resSlider'),
+    heat: document.getElementById('heatSlider'),
+    vort: document.getElementById('vortSlider'),
+    vel: document.getElementById('velSlider')
+  };
+  const vals = {
+    res: document.getElementById('resVal'),
+    heat: document.getElementById('heatVal'),
+    vort: document.getElementById('vortVal'),
+    vel: document.getElementById('velVal')
+  };
+
+  function syncReadout() {
+    vals.res.textContent = params.res;
+    vals.heat.textContent = params.heat.toFixed(1);
+    vals.vort.textContent = params.vort.toFixed(1);
+    vals.vel.textContent = params.vel;
+    document.getElementById('paramReadout').textContent =
+      `resolution: ${params.res} · heat: ${params.heat.toFixed(1)} · vorticity: ${params.vort.toFixed(1)} · velocity: ${params.vel}`;
+  }
+
+  sliders.res.oninput = e => { params.res = +e.target.value; syncReadout(); };
+  sliders.heat.oninput = e => { params.heat = +e.target.value / 10; syncReadout(); };
+  sliders.vort.oninput = e => { params.vort = +e.target.value / 10; syncReadout(); };
+  sliders.vel.oninput = e => { params.vel = +e.target.value; syncReadout(); };
+
+  // Presets
+  const presets = {
+    'default': { res: 54, heat: 10, vort: 20, vel: 0 },
+    'lab17a':  { res: 54, heat: 12, vort: 20, vel: 8 },
+    'lab17b':  { res: 100, heat: 0, vort: 1, vel: 0 },
+    'campfire':{ res: 80, heat: 16, vort: 30, vel: 0 },
+    'explosion':{res: 70, heat: 20, vort: 50, vel: 0 }
+  };
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.onclick = () => {
+      const p = presets[btn.dataset.preset];
+      if (!p) return;
+      sliders.res.value = p.res;
+      sliders.heat.value = p.heat;
+      sliders.vort.value = p.vort;
+      sliders.vel.value = p.vel;
+      params.res = p.res;
+      params.heat = p.heat / 10;
+      params.vort = p.vort / 10;
+      params.vel = p.vel;
+      syncReadout();
+      // burst of particles
+      for (let i = 0; i < 40; i++) spawnParticle();
+    };
+  });
+
+  syncReadout();
+
+  // Particle simulation
+  const particles = [];
+  function spawnParticle() {
+    particles.push({
+      x: W * 0.5 + (Math.random() - 0.5) * 30,
+      y: H - 30,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: -0.5,
+      life: 0,
+      maxLife: 100 + Math.random() * 80,
+      size: 8 + Math.random() * 10,
+      seed: Math.random() * 1000
+    });
+  }
+
+  let lastSpawn = 0;
+  function tick(now) {
+    // Resolution affects particle size detail
+    const sizeFactor = 0.5 + (params.res / 120) * 0.8;
+
+    // Spawn rate
+    if (now - lastSpawn > Math.max(20, 80 - params.res / 2)) {
+      const count = Math.floor(2 + params.res / 30);
+      for (let i = 0; i < count; i++) spawnParticle();
+      lastSpawn = now;
+    }
+
+    // Trail effect
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Source indicator (the Flow object)
+    ctx.fillStyle = 'rgba(245,121,42,0.2)';
+    ctx.fillRect(W * 0.5 - 20, H - 30, 40, 20);
+    ctx.strokeStyle = '#f5792a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(W * 0.5 - 20, H - 30, 40, 20);
+
+    // Domain border
+    ctx.strokeStyle = 'rgba(77,208,225,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    ctx.strokeRect(20, 20, W - 40, H - 40);
+    ctx.setLineDash([]);
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life++;
+
+      // Heat = upward buoyancy
+      p.vy -= params.heat * 0.012;
+      // Velocity (x push)
+      p.vx += params.vel * 0.005;
+      // Vorticity = perlin-ish swirl
+      p.vx += Math.sin(p.seed + p.life * 0.05) * params.vort * 0.04;
+      p.vy += Math.cos(p.seed + p.life * 0.07) * params.vort * 0.02;
+
+      // Drag
+      p.vx *= 0.99;
+      p.vy *= 0.99;
+
+      p.x += p.vx;
+      p.y += p.vy;
+
+      const t = p.life / p.maxLife;
+      const alpha = Math.max(0, (1 - t) * 0.7);
+
+      // Tint (hotter = oranger)
+      const heatTint = Math.max(0, 1 - t * 1.5) * Math.min(1, params.heat / 1.5);
+      const r = 200 + heatTint * 55;
+      const g = 200 - heatTint * 100;
+      const b = 200 - heatTint * 150;
+
+      const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * sizeFactor);
+      grd.addColorStop(0, `rgba(${r|0},${g|0},${b|0},${alpha})`);
+      grd.addColorStop(1, `rgba(${r|0},${g|0},${b|0},0)`);
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * sizeFactor, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (p.life > p.maxLife || p.y < 10 || p.x < 10 || p.x > W - 10) {
+        particles.splice(i, 1);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+/* ============================================================================
+   QUIZ
+============================================================================ */
+const QUIZ_DATA = [
+  {
+    q: "What does the <strong>Domain</strong> object do in a Blender smoke simulation?",
+    options: [
+      "It emits the smoke into the scene",
+      "It defines the invisible 3D box where smoke physics can happen",
+      "It stores the bake file on disk",
+      "It controls the smoke's colour and material"
+    ],
+    correct: 1,
+    explain: "The Domain is the bounding box. Smoke can't exist outside of it — it's like a fish tank for fluid simulation."
+  },
+  {
+    q: "You set Resolution Divisions to 32 and your smoke looks blocky and pixelated. What do you do?",
+    options: [
+      "Decrease it — lower numbers = more detail",
+      "Add more Flow objects",
+      "Increase Resolution Divisions (e.g. to 54 or higher)",
+      "Bake it twice"
+    ],
+    correct: 2,
+    explain: "Higher resolution means a denser voxel grid = more detail. The trade-off is bake time. Lab 17A used 54; Lab 17B pushed it to 150."
+  },
+  {
+    q: "Why does <strong>baking</strong> matter before rendering?",
+    options: [
+      "It changes the smoke colour",
+      "It saves the simulation to disk so playback and rendering are smooth",
+      "It deletes the Flow object",
+      "It makes the file smaller"
+    ],
+    correct: 1,
+    explain: "Without baking, every frame has to be recalculated live — too slow for smooth playback or final renders."
+  },
+  {
+    q: "In Lab 17B, you set <strong>Vorticity to 0.1</strong>. What does this do to the smoke?",
+    options: [
+      "Makes it rise much faster",
+      "Makes it fall instead of rise",
+      "Adds beautiful subtle swirls and curls (like real smoke)",
+      "Removes all colour from the smoke"
+    ],
+    correct: 2,
+    explain: "Vorticity controls swirliness. Real smoke is never a straight column — vorticity adds the natural curling motion."
+  },
+  {
+    q: "Which two objects are <em>required</em> for any Blender smoke simulation?",
+    options: [
+      "Camera and Light",
+      "Domain and Flow",
+      "Plane and Sphere",
+      "Cube and Torus"
+    ],
+    correct: 1,
+    explain: "Domain (the box) + Flow (the source) = the minimum smoke setup. Everything else is optional."
+  }
+];
+
+(function buildQuiz() {
+  const wrap = document.getElementById('quiz');
+  let answered = 0;
+  let correct = 0;
+
+  QUIZ_DATA.forEach((item, idx) => {
+    const block = document.createElement('div');
+    block.className = 'q-block';
+    block.innerHTML = `
+      <div class="q-num">QUESTION ${idx + 1} OF ${QUIZ_DATA.length}</div>
+      <div class="q-text">${item.q}</div>
+      <div class="q-options"></div>
+      <div class="q-feedback"></div>
+    `;
+    const optsEl = block.querySelector('.q-options');
+    const fbEl = block.querySelector('.q-feedback');
+    let locked = false;
+
+    item.options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'q-opt';
+      btn.textContent = opt;
+      btn.onclick = () => {
+        if (locked) return;
+        locked = true;
+        answered++;
+        const isRight = i === item.correct;
+        if (isRight) {
+          btn.classList.add('correct');
+          fbEl.classList.add('show', 'good');
+          fbEl.innerHTML = `✅ <strong>Correct!</strong> ${item.explain}`;
+          correct++;
+        } else {
+          btn.classList.add('wrong');
+          optsEl.children[item.correct].classList.add('correct');
+          fbEl.classList.add('show', 'bad');
+          fbEl.innerHTML = `❌ <strong>Not quite.</strong> ${item.explain}`;
+        }
+        Array.from(optsEl.children).forEach(b => { if (b !== btn) b.disabled = true; });
+
+        if (answered === QUIZ_DATA.length) showScore();
+      };
+      optsEl.appendChild(btn);
+    });
+
+    wrap.appendChild(block);
+  });
+
+  function showScore() {
+    const el = document.getElementById('scoreDisplay');
+    const pct = (correct / QUIZ_DATA.length) * 100;
+    let msg, bg;
+    if (pct === 100) { msg = `🔥 Perfect — ${correct}/${QUIZ_DATA.length}! You've nailed smoke simulation.`; bg = 'rgba(125,216,122,0.12)'; }
+    else if (pct >= 75) { msg = `💪 Solid — ${correct}/${QUIZ_DATA.length}! Just review the ones you missed.`; bg = 'rgba(245,121,42,0.12)'; }
+    else if (pct >= 50) { msg = `📖 ${correct}/${QUIZ_DATA.length} — Halfway there. Re-read the recap and try again.`; bg = 'rgba(255,210,63,0.10)'; }
+    else { msg = `🔁 ${correct}/${QUIZ_DATA.length} — Worth another look. Reread Section 7 and retry.`; bg = 'rgba(255,77,141,0.10)'; }
+    el.textContent = msg;
+    el.style.background = bg;
+    el.classList.add('show');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+})();
+
+/* ============================================================================
+   CHECKLIST
+============================================================================ */
+document.querySelectorAll('#checklist li').forEach(li => {
+  li.addEventListener('click', e => {
+    if (e.target.tagName === 'INPUT') return;
+    const cb = li.querySelector('input[type=checkbox]');
+    cb.checked = !cb.checked;
+    li.classList.toggle('done', cb.checked);
+  });
+  const cb = li.querySelector('input[type=checkbox]');
+  cb.addEventListener('change', () => li.classList.toggle('done', cb.checked));
+});
+
+/* ============================================================================
+   PROGRESS BAR (scroll-based)
+============================================================================ */
+const fill = document.getElementById('progressFill');
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+  fill.style.width = pct + '%';
+});
+
+/* ============================================================================
+   SCROLL REVEAL
+============================================================================ */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) e.target.classList.add('visible');
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('section').forEach(s => {
+  s.classList.add('reveal');
+  observer.observe(s);
+});
+
+</script>
+</body>
+</html>
