@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BSDF in Blender — Making Materials Look Real</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0d0d0d;
+    color: #e8e8e8;
+    line-height: 1.6;
+    padding: 24px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+
+  .hero {
+    background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
+    border: 1px solid #333;
+    border-left: 4px solid #EA7600;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+  }
+  .hero .tag {
+    display: inline-block;
+    background: #EA7600;
+    color: #0d0d0d;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .hero h1 {
+    font-size: 30px;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .hero .sub { color: #bbb; font-size: 16px; }
+
+  .card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    color: #EA7600;
+    font-size: 20px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .card h2 .num {
+    background: #EA7600;
+    color: #0d0d0d;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .card h3 { color: #fff; font-size: 16px; margin: 18px 0 8px; }
+  .card p { color: #d0d0d0; margin-bottom: 10px; }
+  .card ul { margin: 10px 0 10px 22px; color: #d0d0d0; }
+  .card ul li { margin-bottom: 6px; }
+  .card strong { color: #fff; }
+
+  .li-box {
+    background: #0f1f2e;
+    border: 1px solid #1e3a5f;
+    border-left: 3px solid #4a9eff;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  .li-box h3 { color: #4a9eff; margin-top: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+  .li-box ul { margin-left: 20px; }
+
+  .props {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .prop {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .prop .name { color: #EA7600; font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .prop .range { font-family: "Courier New", monospace; font-size: 11px; color: #888; margin-bottom: 6px; }
+  .prop .desc { font-size: 13px; color: #ccc; }
+
+  /* Interactive playground */
+  .playground {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    margin-top: 14px;
+  }
+  @media (max-width: 700px) { .playground { grid-template-columns: 1fr; } }
+  .preview-wrap {
+    background: radial-gradient(circle at 30% 20%, #2a2a2a 0%, #0a0a0a 80%);
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #sphere { width: 280px; height: 280px; display: block; }
+  .preview-label {
+    color: #888;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .controls { display: flex; flex-direction: column; gap: 14px; }
+  .control {
+    background: #222;
+    border: 1px solid #2f2f2f;
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .control .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .control label { color: #fff; font-weight: 600; font-size: 14px; }
+  .control .val {
+    font-family: "Courier New", monospace;
+    font-size: 13px;
+    color: #EA7600;
+    background: #1a1a1a;
+    padding: 2px 8px;
+    border-radius: 4px;
+    min-width: 58px;
+    text-align: center;
+  }
+  .control input[type="range"] { width: 100%; accent-color: #EA7600; cursor: pointer; }
+  .control input[type="color"] {
+    width: 100%;
+    height: 36px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #111;
+    cursor: pointer;
+  }
+  .control .hint { font-size: 11px; color: #888; margin-top: 6px; font-style: italic; }
+
+  .presets { margin-top: 16px; padding-top: 16px; border-top: 1px solid #2a2a2a; }
+  .presets .label {
+    color: #888;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .preset-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .preset-buttons button {
+    background: #222;
+    border: 1px solid #333;
+    color: #e0e0e0;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .preset-buttons button:hover {
+    border-color: #EA7600;
+    background: #2a1f0f;
+    transform: translateY(-1px);
+  }
+  .preset-buttons button.active {
+    background: #EA7600;
+    color: #0d0d0d;
+    border-color: #EA7600;
+    font-weight: 600;
+  }
+  .preset-dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.3); }
+
+  .mats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .mat { background: #222; border: 1px solid #333; border-radius: 8px; padding: 16px; }
+  .mat .swatch { width: 100%; height: 60px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #111; }
+  .mat h4 { color: #fff; font-size: 15px; margin-bottom: 8px; }
+  .mat .setting { font-family: "Courier New", monospace; font-size: 12px; color: #bbb; line-height: 1.7; }
+  .mat .setting span { color: #EA7600; }
+
+  .s-metal    { background: linear-gradient(135deg, #c4c4c4, #808080); }
+  .s-gold     { background: linear-gradient(135deg, #f5d76e, #b8860b); }
+  .s-plastic  { background: linear-gradient(135deg, #e74c3c, #a93226); }
+  .s-wood     { background: linear-gradient(135deg, #8b5a2b, #5c3a1e); }
+  .s-glass    { background: linear-gradient(135deg, rgba(180,220,230,0.6), rgba(120,180,200,0.9)); border: 1px solid #446 !important; }
+  .s-rubber   { background: linear-gradient(135deg, #2c2c2c, #1a1a1a); }
+  .s-fabric   { background: linear-gradient(135deg, #6b4a7a, #3e2a4a); }
+  .s-ceramic  { background: linear-gradient(135deg, #f5f5f0, #d4d4c8); }
+  .s-emissive { background: linear-gradient(135deg, #ffe066, #ff9500); box-shadow: 0 0 15px rgba(255,180,0,0.4); }
+
+  .steps { counter-reset: step; margin-top: 10px; }
+  .step {
+    background: #222;
+    border-radius: 8px;
+    padding: 14px 16px 14px 52px;
+    margin-bottom: 10px;
+    position: relative;
+    border-left: 3px solid #EA7600;
+  }
+  .step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #EA7600;
+    color: #0d0d0d;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .step strong { color: #fff; display: block; margin-bottom: 2px; font-size: 14px; }
+  .step span { color: #bbb; font-size: 13.5px; }
+
+  .task {
+    background: #1f1a0d;
+    border: 1px solid #3d3320;
+    border-left: 3px solid #EA7600;
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .tip {
+    background: #1a1522;
+    border-left: 3px solid #a66cff;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 14px 0;
+    font-size: 14px;
+    color: #d0c8e0;
+  }
+  .tip::before {
+    content: "💡 TIP  ";
+    color: #a66cff;
+    font-weight: 700;
+    letter-spacing: 1px;
+    font-size: 12px;
+  }
+
+  .reflect { counter-reset: q; }
+  .reflect > div {
+    counter-increment: q;
+    background: #222;
+    padding: 12px 16px 12px 44px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+  .reflect > div::before {
+    content: "Q" counter(q);
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    color: #EA7600;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .foot {
+    text-align: center;
+    color: #666;
+    font-size: 12px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #222;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <span class="tag">Blender · Shading</span>
+    <h1>BSDF — Making Materials Look Real</h1>
+    <div class="sub">Today you're going to colour a Blender file so it looks convincing in the real world. The secret isn't the colour — it's how the surface <em>reacts to light</em>.</div>
+  </div>
+
+  <div class="card">
+    <div class="li-box">
+      <h3>Learning Intentions</h3>
+      <ul>
+        <li>Understand what <strong>BSDF</strong> means and why it matters for realism.</li>
+        <li>Identify the real-world material an object is made of by looking at it.</li>
+        <li>Apply the correct <strong>Principled BSDF</strong> settings to match that material.</li>
+      </ul>
+    </div>
+    <div class="li-box" style="background:#1f1a0d; border-color:#3d3320; border-left-color:#EA7600;">
+      <h3 style="color:#EA7600;">Success Criteria</h3>
+      <ul>
+        <li>I can explain what <em>reflect</em> and <em>absorb</em> mean in shading.</li>
+        <li>I have given every object in the scene a material that matches what it would be made of.</li>
+        <li>My render looks believable — a metal looks metal, plastic looks plastic, glass looks glass.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">1</span> What is BSDF?</h2>
+    <p><strong>BSDF</strong> stands for <strong>Bidirectional Scattering Distribution Function</strong>. That's a mouthful, so think of it this way:</p>
+    <div class="tip">A BSDF is a set of <strong>rules</strong> that tell Blender how light should behave when it hits a surface — how much gets <strong>reflected</strong>, how much gets <strong>absorbed</strong>, and how much passes <strong>through</strong>.</div>
+    <p>Every real-world material behaves differently:</p>
+    <ul>
+      <li>A <strong>mirror</strong> reflects almost everything.</li>
+      <li>A <strong>black rubber tyre</strong> absorbs almost everything.</li>
+      <li>A <strong>glass window</strong> lets most light pass through and reflects a little.</li>
+      <li>A <strong>wooden table</strong> scatters light softly in many directions.</li>
+    </ul>
+    <p>In Blender, we control all of this through the <strong>Principled BSDF</strong> shader — a single powerful node that can imitate almost any real-world material if you know which sliders to move.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span> The Properties That Matter</h2>
+    <p>Open the <strong>Shading</strong> workspace and select any object. You'll see a <em>Principled BSDF</em> node. These are the sliders you'll use most often today:</p>
+    <div class="props">
+      <div class="prop">
+        <div class="name">Base Color</div>
+        <div class="range">colour picker</div>
+        <div class="desc">The underlying colour of the material when lit normally.</div>
+      </div>
+      <div class="prop">
+        <div class="name">Metallic</div>
+        <div class="range">0.0 → 1.0</div>
+        <div class="desc">Is it metal or not? Use <strong>0</strong> for almost everything. Use <strong>1</strong> for pure metals.</div>
+      </div>
+      <div class="prop">
+        <div class="name">Roughness</div>
+        <div class="range">0.0 → 1.0</div>
+        <div class="desc">How polished is it? <strong>0</strong> = mirror-smooth, <strong>1</strong> = completely matte and diffused.</div>
+      </div>
+      <div class="prop">
+        <div class="name">IOR (Index of Refraction)</div>
+        <div class="range">1.0 → 2.5</div>
+        <div class="desc">How much light bends going through it. Glass ≈ 1.45, water ≈ 1.33, diamond ≈ 2.4.</div>
+      </div>
+      <div class="prop">
+        <div class="name">Transmission</div>
+        <div class="range">0.0 → 1.0</div>
+        <div class="desc">How much light passes <em>through</em> the surface. Use for glass, water, clear plastic.</div>
+      </div>
+      <div class="prop">
+        <div class="name">Emission</div>
+        <div class="range">colour + strength</div>
+        <div class="desc">Does it <em>give off</em> light? Use for screens, bulbs, lava, glow sticks.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span> Playground — Drag the Sliders</h2>
+    <p>Before you open Blender, get a feel for how each property changes a surface. The sphere below is rendered live in your browser — drag any slider and watch it react.</p>
+
+    <div class="playground">
+      <div class="preview-wrap">
+        <canvas id="sphere" width="280" height="280"></canvas>
+        <div class="preview-label">Live Preview</div>
+      </div>
+
+      <div class="controls">
+        <div class="control">
+          <div class="row"><label>Base Color</label><span class="val" id="colorVal">#C23B3B</span></div>
+          <input type="color" id="color" value="#c23b3b">
+          <div class="hint">The underlying colour of the surface.</div>
+        </div>
+        <div class="control">
+          <div class="row"><label>Metallic</label><span class="val" id="metallicVal">0.00</span></div>
+          <input type="range" id="metallic" min="0" max="1" step="0.01" value="0">
+          <div class="hint">0 = non-metal (plastic, wood) · 1 = pure metal (steel, gold)</div>
+        </div>
+        <div class="control">
+          <div class="row"><label>Roughness</label><span class="val" id="roughnessVal">0.40</span></div>
+          <input type="range" id="roughness" min="0" max="1" step="0.01" value="0.4">
+          <div class="hint">0 = mirror-smooth · 1 = completely matte</div>
+        </div>
+        <div class="control">
+          <div class="row"><label>Emission</label><span class="val" id="emissionVal">0.00</span></div>
+          <input type="range" id="emission" min="0" max="3" step="0.01" value="0">
+          <div class="hint">How much light the surface gives off on its own.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="presets">
+      <div class="label">Try a preset material</div>
+      <div class="preset-buttons" id="presetButtons">
+        <button data-preset="steel"><span class="preset-dot" style="background:#b8b8b8"></span>Brushed Steel</button>
+        <button data-preset="gold"><span class="preset-dot" style="background:#f5d76e"></span>Polished Gold</button>
+        <button data-preset="plastic"><span class="preset-dot" style="background:#e74c3c"></span>Plastic</button>
+        <button data-preset="wood"><span class="preset-dot" style="background:#8b5a2b"></span>Wood</button>
+        <button data-preset="rubber"><span class="preset-dot" style="background:#2c2c2c"></span>Rubber</button>
+        <button data-preset="ceramic"><span class="preset-dot" style="background:#eee"></span>Ceramic</button>
+        <button data-preset="chrome"><span class="preset-dot" style="background:#e8e8e8"></span>Chrome</button>
+        <button data-preset="emissive"><span class="preset-dot" style="background:#ffcc33;box-shadow:0 0 6px #ff9500"></span>Light Source</button>
+      </div>
+    </div>
+
+    <div class="tip">This preview is a simplified simulation — Blender uses full path-traced rendering so your final results will look even better. But the <em>relationships</em> between the sliders are exactly the same.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">4</span> The Workflow</h2>
+    <p>Before you touch a single slider in Blender, stop and look. Every object in your scene needs this same three-step decision:</p>
+    <div class="steps">
+      <div class="step">
+        <strong>Observe the object</strong>
+        <span>What shape is it? What's it being used for? A cup, a table leg, a bolt, a lampshade?</span>
+      </div>
+      <div class="step">
+        <strong>Decide what it's made of</strong>
+        <span>In real life, what would this object actually be? Metal? Wood? Ceramic? Plastic? Glass?</span>
+      </div>
+      <div class="step">
+        <strong>Apply the matching material in Blender</strong>
+        <span>Select the object → go to the <strong>Material Properties</strong> tab → add a new material → adjust the Principled BSDF settings using the cheat sheet below.</span>
+      </div>
+    </div>
+    <div class="tip">Don't skip the "what is it made of" question! A wooden bowl and a metal bowl are the same shape but need <em>completely</em> different BSDF settings.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">5</span> Material Cheat Sheet</h2>
+    <p>Starting points for the most common materials. These aren't rules — experiment and tweak until it <em>looks</em> right.</p>
+    <div class="mats">
+
+      <div class="mat">
+        <div class="swatch s-metal"></div>
+        <h4>Brushed Steel</h4>
+        <div class="setting">
+          <span>Metallic:</span> 1.0<br>
+          <span>Roughness:</span> 0.35<br>
+          <span>Base Color:</span> light grey
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-gold"></div>
+        <h4>Polished Gold</h4>
+        <div class="setting">
+          <span>Metallic:</span> 1.0<br>
+          <span>Roughness:</span> 0.1<br>
+          <span>Base Color:</span> warm yellow
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-plastic"></div>
+        <h4>Plastic</h4>
+        <div class="setting">
+          <span>Metallic:</span> 0.0<br>
+          <span>Roughness:</span> 0.4<br>
+          <span>IOR:</span> 1.45
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-wood"></div>
+        <h4>Wood</h4>
+        <div class="setting">
+          <span>Metallic:</span> 0.0<br>
+          <span>Roughness:</span> 0.7<br>
+          <span>Base Color:</span> brown + texture
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-glass"></div>
+        <h4>Clear Glass</h4>
+        <div class="setting">
+          <span>Transmission:</span> 1.0<br>
+          <span>Roughness:</span> 0.0<br>
+          <span>IOR:</span> 1.45
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-rubber"></div>
+        <h4>Rubber</h4>
+        <div class="setting">
+          <span>Metallic:</span> 0.0<br>
+          <span>Roughness:</span> 0.9<br>
+          <span>Base Color:</span> near-black
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-fabric"></div>
+        <h4>Fabric / Cloth</h4>
+        <div class="setting">
+          <span>Metallic:</span> 0.0<br>
+          <span>Roughness:</span> 0.8<br>
+          <span>Sheen:</span> 0.3
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-ceramic"></div>
+        <h4>Ceramic</h4>
+        <div class="setting">
+          <span>Metallic:</span> 0.0<br>
+          <span>Roughness:</span> 0.2<br>
+          <span>IOR:</span> 1.5
+        </div>
+      </div>
+
+      <div class="mat">
+        <div class="swatch s-emissive"></div>
+        <h4>Light Source</h4>
+        <div class="setting">
+          <span>Emission:</span> warm colour<br>
+          <span>Strength:</span> 5.0+<br>
+          <span>Base Color:</span> match emission
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">6</span> Your Task</h2>
+    <div class="task">
+      <h3 style="color:#EA7600; margin-top:0;">🎨 The Brief</h3>
+      <p>1. Download the Blender file attached to this lesson on SEQTA.</p>
+      <p>2. Open it in Blender and switch to the <strong>Shading</strong> workspace.</p>
+      <p>3. For <strong>every</strong> object in the scene:</p>
+      <ul>
+        <li>Look at it and decide what real-world material it should be.</li>
+        <li>Add a new material using the <strong>Principled BSDF</strong>.</li>
+        <li>Adjust the sliders until it looks convincing.</li>
+      </ul>
+      <p>4. Press <kbd>F12</kbd> to render a final image.</p>
+      <p>5. Save your render as a <strong>.png</strong> and upload it back to SEQTA with your <strong>.blend</strong> file.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">7</span> Reflect Before You Submit</h2>
+    <div class="reflect">
+      <div>Pick one object in your scene. What is it <em>made of</em>, and which BSDF setting made the biggest difference in selling that illusion?</div>
+      <div>What's the difference between <strong>Roughness</strong> and <strong>Metallic</strong> in your own words?</div>
+      <div>Which material was the hardest to get right, and what did you have to adjust?</div>
+    </div>
+  </div>
+
+  <div class="foot">
+    Plenty Valley Christian College · Digital Technologies · BSDF &amp; Shading in Blender
+  </div>
+
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('sphere');
+  const ctx = canvas.getContext('2d');
+  const SIZE = 280;
+
+  const colorInput = document.getElementById('color');
+  const metallicSlider = document.getElementById('metallic');
+  const roughnessSlider = document.getElementById('roughness');
+  const emissionSlider = document.getElementById('emission');
+  const colorVal = document.getElementById('colorVal');
+  const metallicVal = document.getElementById('metallicVal');
+  const roughnessVal = document.getElementById('roughnessVal');
+  const emissionVal = document.getElementById('emissionVal');
+
+  function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    return [
+      parseInt(h.slice(0,2), 16) / 255,
+      parseInt(h.slice(2,4), 16) / 255,
+      parseInt(h.slice(4,6), 16) / 255
+    ];
+  }
+  function toLinear(c) { return Math.pow(c, 2.2); }
+  function toSrgb(c) { return Math.pow(Math.max(0, c), 1/2.2); }
+
+  function render() {
+    const baseColor = hexToRgb(colorInput.value).map(toLinear);
+    const metallic = parseFloat(metallicSlider.value);
+    const roughness = parseFloat(roughnessSlider.value);
+    const emission = parseFloat(emissionSlider.value);
+
+    colorVal.textContent = colorInput.value.toUpperCase();
+    metallicVal.textContent = metallic.toFixed(2);
+    roughnessVal.textContent = roughness.toFixed(2);
+    emissionVal.textContent = emission.toFixed(2);
+
+    const img = ctx.createImageData(SIZE, SIZE);
+    const data = img.data;
+
+    const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2 - 10;
+
+    // Primary light (upper-right, warm)
+    let Lx = 0.45, Ly = -0.55, Lz = 0.75;
+    let Ll = Math.hypot(Lx, Ly, Lz);
+    Lx /= Ll; Ly /= Ll; Lz /= Ll;
+    const lightColor = [1.0, 0.95, 0.85];
+
+    // Secondary fill (lower-left, cool)
+    let L2x = -0.6, L2y = 0.3, L2z = 0.5;
+    let L2l = Math.hypot(L2x, L2y, L2z);
+    L2x /= L2l; L2y /= L2l; L2z /= L2l;
+    const fillColor = [0.4, 0.5, 0.7];
+
+    const Vx = 0, Vy = 0, Vz = 1;
+    function halfVec(lx, ly, lz) {
+      let hx = lx + Vx, hy = ly + Vy, hz = lz + Vz;
+      const hl = Math.hypot(hx, hy, hz);
+      return [hx/hl, hy/hl, hz/hl];
+    }
+    const H1 = halfVec(Lx, Ly, Lz);
+    const H2 = halfVec(L2x, L2y, L2z);
+
+    const shin = Math.pow(1 - roughness, 2) * 600 + 1.5;
+    const specPeak = (1 - roughness * 0.7);
+    const ambient = 0.08;
+
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const dx = (x - cx) / r;
+        const dy = (y - cy) / r;
+        const d2 = dx*dx + dy*dy;
+        const i = (y * SIZE + x) * 4;
+
+        if (d2 > 1) { data[i+3] = 0; continue; }
+
+        const nx = dx;
+        const ny = dy;
+        const nz = Math.sqrt(1 - d2);
+
+        const NdotL1 = Math.max(0, nx*Lx + ny*Ly + nz*Lz);
+        const NdotL2 = Math.max(0, nx*L2x + ny*L2y + nz*L2z);
+        const NdotH1 = Math.max(0, nx*H1[0] + ny*H1[1] + nz*H1[2]);
+        const NdotH2 = Math.max(0, nx*H2[0] + ny*H2[1] + nz*H2[2]);
+        const spec1 = Math.pow(NdotH1, shin) * specPeak;
+        const spec2 = Math.pow(NdotH2, shin) * specPeak * 0.3;
+
+        const diffuseScale = (1 - metallic) * 0.85;
+        const specTintR = metallic * baseColor[0] + (1 - metallic);
+        const specTintG = metallic * baseColor[1] + (1 - metallic);
+        const specTintB = metallic * baseColor[2] + (1 - metallic);
+
+        const diffR = baseColor[0] * diffuseScale * (NdotL1 * lightColor[0] + NdotL2 * 0.35 * fillColor[0] + ambient);
+        const diffG = baseColor[1] * diffuseScale * (NdotL1 * lightColor[1] + NdotL2 * 0.35 * fillColor[1] + ambient);
+        const diffB = baseColor[2] * diffuseScale * (NdotL1 * lightColor[2] + NdotL2 * 0.35 * fillColor[2] + ambient);
+
+        const sR = (spec1 * lightColor[0] + spec2 * fillColor[0]) * specTintR;
+        const sG = (spec1 * lightColor[1] + spec2 * fillColor[1]) * specTintG;
+        const sB = (spec1 * lightColor[2] + spec2 * fillColor[2]) * specTintB;
+
+        const eR = emission * baseColor[0];
+        const eG = emission * baseColor[1];
+        const eB = emission * baseColor[2];
+
+        let R = diffR + sR + eR;
+        let G = diffG + sG + eG;
+        let B = diffB + sB + eB;
+
+        // Reinhard tonemap
+        R = R / (1 + R);
+        G = G / (1 + G);
+        B = B / (1 + B);
+
+        R = toSrgb(R);
+        G = toSrgb(G);
+        B = toSrgb(B);
+
+        data[i]   = Math.min(255, R * 255);
+        data[i+1] = Math.min(255, G * 255);
+        data[i+2] = Math.min(255, B * 255);
+        data[i+3] = 255;
+      }
+    }
+
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    ctx.putImageData(img, 0, 0);
+  }
+
+  const presets = {
+    steel:    { color: '#b8b8b8', metallic: 1.0, roughness: 0.35, emission: 0.0 },
+    gold:     { color: '#ffd166', metallic: 1.0, roughness: 0.15, emission: 0.0 },
+    plastic:  { color: '#c23b3b', metallic: 0.0, roughness: 0.4,  emission: 0.0 },
+    wood:     { color: '#8b5a2b', metallic: 0.0, roughness: 0.7,  emission: 0.0 },
+    rubber:   { color: '#1e1e1e', metallic: 0.0, roughness: 0.9,  emission: 0.0 },
+    ceramic:  { color: '#f0ebe0', metallic: 0.0, roughness: 0.2,  emission: 0.0 },
+    chrome:   { color: '#e8e8e8', metallic: 1.0, roughness: 0.05, emission: 0.0 },
+    emissive: { color: '#ffb347', metallic: 0.0, roughness: 0.5,  emission: 2.0 }
+  };
+
+  function applyPreset(name) {
+    const p = presets[name];
+    if (!p) return;
+    colorInput.value = p.color;
+    metallicSlider.value = p.metallic;
+    roughnessSlider.value = p.roughness;
+    emissionSlider.value = p.emission;
+    render();
+    document.querySelectorAll('#presetButtons button').forEach(b => {
+      b.classList.toggle('active', b.dataset.preset === name);
+    });
+  }
+
+  [colorInput, metallicSlider, roughnessSlider, emissionSlider].forEach(el => {
+    el.addEventListener('input', () => {
+      document.querySelectorAll('#presetButtons button.active').forEach(b => b.classList.remove('active'));
+      render();
+    });
+  });
+
+  document.querySelectorAll('#presetButtons button').forEach(b => {
+    b.addEventListener('click', () => applyPreset(b.dataset.preset));
+  });
+
+  applyPreset('plastic');
+})();
+</script>
+</body>
+</html>
